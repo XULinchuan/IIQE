@@ -124,7 +124,7 @@ Page({
   onActivationInput(e) {
     const value = ((e && e.detail && e.detail.value) || '').toUpperCase();
     this.setData({
-      activationCode: value.replace(/\s+/g, ''),
+      activationCode: value.replace(/\s+/g, '').slice(0, 20),
     });
   },
 
@@ -132,7 +132,7 @@ Page({
     wx.getClipboardData({
       success: (res) => {
         const text = ((res && res.data) || '').toUpperCase().replace(/\s+/g, '');
-        this.setData({ activationCode: text });
+        this.setData({ activationCode: text.slice(0, 20) });
       },
       fail: () => {
         wx.showToast({ title: '粘贴失败', icon: 'none' });
@@ -167,12 +167,10 @@ Page({
         }, () => this.loadPapers());
         wx.showToast({ title: '授权成功', icon: 'success' });
       } else {
-        const message = (res && res.result && res.result.message) || '授权码无效';
-        wx.showToast({ title: message, icon: 'none' });
+        wx.showToast({ title: '授权码无效或已使用', icon: 'none' });
       }
     } catch (err) {
-      const message = (err && err.errMsg) || '授权失败';
-      wx.showToast({ title: message, icon: 'none' });
+      wx.showToast({ title: '授权失败，请稍后重试', icon: 'none' });
     } finally {
       this.setData({ redeeming: false });
     }

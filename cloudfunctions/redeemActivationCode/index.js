@@ -8,10 +8,45 @@ function normalizeCode(value) {
   return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
 }
 
+async function checkRateLimit(openId, action, limit, windowSec) {
+  const now = Date.now();
+  const windowStart = now - (now % (windowSec * 1000));
+  const key = `rl_${action}_${openId}`;
+  const tx = await db.startTransaction();
+  try {
+    const res = await tx.collection('iiqe_rate_limits').doc(key).get().catch(() => null);
+    const doc = res && res.data;
+    const count = doc && doc.windowStart === windowStart ? Number(doc.count || 0) : 0;
+    if (count >= limit) {
+      await tx.rollback();
+      return false;
+    }
+    await tx.collection('iiqe_rate_limits').doc(key).set({
+      data: {
+        action,
+        openId,
+        windowStart,
+        count: count + 1,
+        updatedAt: db.serverDate(),
+      },
+    });
+    await tx.commit();
+    return true;
+  } catch (err) {
+    try { await tx.rollback(); } catch (e) {}
+    return false;
+  }
+}
+
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) {
     return { ok: false, message: '用户身份无效' };
+  }
+
+  const pass = await checkRateLimit(OPENID, 'redeem_activation', 10, 60);
+  if (!pass) {
+    return { ok: false, message: '请求过于频繁，请稍后再试' };
   }
 
   const code = normalizeCode(event && event.code);
@@ -72,7 +107,6 @@ exports.main = async (event) => {
     return {
       ok: false,
       message: '验证失败，请稍后重试',
-      error: err && err.errMsg,
     };
   }
 };

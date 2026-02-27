@@ -27,13 +27,14 @@
 .nav-title {
   flex: 1;
   text-align: center;
-  font-size: 30rpx;
-  font-weight: 600;
+  font-size: 40rpx;
+  font-weight: 700;
   color: #111;
   margin: 0 12rpx;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .nav-spacer {
@@ -48,7 +49,7 @@
 }
 
 .progress {
-  font-size: 28rpx;
+  font-size: 26rpx;
   color: #111;
 }
 
@@ -86,7 +87,7 @@
 }
 
 .q-title {
-  font-size: 32rpx;
+  font-size: 26rpx;
   line-height: 1.5;
   color: #111;
   margin-bottom: 14rpx;
@@ -108,12 +109,12 @@
 
 .opt.correct {
   border-color: #16a34a;
-  background: #fff;
+  background: #dcfce7;
 }
 
 .opt.wrong {
   border-color: #dc2626;
-  background: #fff;
+  background: #fee2e2;
 }
 
 .label {
@@ -124,7 +125,7 @@
 .text {
   flex: 1;
   color: #111;
-  font-size: 28rpx;
+  font-size: 26rpx;
 }
 
 .explain {
@@ -145,7 +146,7 @@
   border-radius: 14rpx;
   background: #111827;
   color: #fff;
-  font-size: 30rpx;
+  font-size: 26rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -175,7 +176,7 @@
 
 .empty-title {
   color: #6b7280;
-  font-size: 30rpx;
+  font-size: 26rpx;
 }
 
 .empty-btn {

@@ -1,6 +1,11 @@
 const { requireLogin } = require('../../../utils/auth');
 const { refreshMyAgentProfile, setAgentProfile } = require('../../../utils/entitlement');
 
+function isUserCanceled(err) {
+  const msg = String((err && err.errMsg) || err || '').toLowerCase();
+  return msg.includes('cancel') || msg.includes('取消');
+}
+
 Page({
   data: {
     isAgent: false,
@@ -47,10 +52,10 @@ Page({
         this.setData({ shareCodeFileID: result.fileID });
         wx.showToast({ title: '生成成功', icon: 'success' });
       } else {
-        wx.showToast({ title: (result && result.message) || '生成失败', icon: 'none' });
+        wx.showToast({ title: '生成失败，请稍后重试', icon: 'none' });
       }
     } catch (err) {
-      wx.showToast({ title: (err && err.errMsg) || '生成失败', icon: 'none' });
+      wx.showToast({ title: '生成失败，请稍后重试', icon: 'none' });
     } finally {
       this.setData({ generating: false });
     }
@@ -68,6 +73,12 @@ Page({
       const file = pick && pick.tempFiles && pick.tempFiles[0];
       if (!file || !file.tempFilePath) {
         wx.showToast({ title: '未选择图片', icon: 'none' });
+        this.setData({ uploadingQr: false });
+        return;
+      }
+      const maxBytes = 2 * 1024 * 1024;
+      if (Number(file.size || 0) > maxBytes) {
+        wx.showToast({ title: '图片不能超过2MB', icon: 'none' });
         this.setData({ uploadingQr: false });
         return;
       }
@@ -94,10 +105,14 @@ Page({
         });
         wx.showToast({ title: '更新成功', icon: 'success' });
       } else {
-        wx.showToast({ title: (result && result.message) || '更新失败', icon: 'none' });
+        wx.showToast({ title: '更新失败，请稍后重试', icon: 'none' });
       }
     } catch (err) {
-      wx.showToast({ title: (err && err.errMsg) || '上传失败', icon: 'none' });
+      if (isUserCanceled(err)) {
+        wx.showToast({ title: '已取消上传', icon: 'none' });
+      } else {
+        wx.showToast({ title: '上传失败，请稍后重试', icon: 'none' });
+      }
     } finally {
       this.setData({ uploadingQr: false });
     }

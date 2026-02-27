@@ -6,7 +6,10 @@
 }
 
 .nav-row {
-  margin-bottom: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
 }
 
 .back-btn {
@@ -21,8 +24,25 @@
   font-size: 26rpx;
 }
 
+.nav-title {
+  flex: 1;
+  text-align: center;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #111;
+  margin: 0 12rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.nav-spacer {
+  width: 92rpx;
+}
+
 .title {
-  font-size: 38rpx;
+  font-size: 30rpx;
   font-weight: 700;
   color: #111;
 }
@@ -46,6 +66,28 @@
   background: #f3f4f6;
 }
 
+.avatar-wrap {
+  width: 96rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.avatar-btn {
+  margin: 0;
+  padding: 0;
+  width: 96rpx;
+  height: 96rpx;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  line-height: normal;
+}
+
+.avatar-btn::after {
+  border: none;
+}
+
 .avatar.placeholder {
   display: flex;
   align-items: center;
@@ -60,7 +102,7 @@
 }
 
 .nick {
-  font-size: 32rpx;
+  font-size: 30rpx;
   color: #111;
   font-weight: 600;
 }
@@ -78,18 +120,6 @@
   border-radius: 12rpx;
   background: #111827;
   color: #fff;
-  font-size: 28rpx;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.logout-btn {
-  margin-top: 12rpx;
-  height: 64rpx;
-  border-radius: 12rpx;
-  background: #f3f4f6;
-  color: #374151;
   font-size: 26rpx;
   display: flex;
   justify-content: center;
@@ -151,7 +181,7 @@
 
 .dialog-title {
   margin-top: 12rpx;
-  font-size: 40rpx;
+  font-size: 30rpx;
   font-weight: 700;
   color: #111;
   text-align: center;
@@ -159,7 +189,7 @@
 
 .dialog-sub {
   margin-top: 12rpx;
-  font-size: 28rpx;
+  font-size: 26rpx;
   color: #666;
   text-align: center;
 }
@@ -189,14 +219,15 @@
 }
 
 .code-label {
-  width: 112rpx;
-  font-size: 34rpx;
+  width: 152rpx;
+  font-size: 28rpx;
   color: #111;
+  white-space: nowrap;
 }
 
 .code-input {
   flex: 1;
-  font-size: 34rpx;
+  font-size: 28rpx;
   color: #111;
 }
 
@@ -219,7 +250,7 @@
   border-radius: 14rpx;
   background: #16a34a;
   color: #fff;
-  font-size: 38rpx;
+  font-size: 28rpx;
   display: flex;
   align-items: center;
   justify-content: center;

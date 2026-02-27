@@ -1,5 +1,11 @@
 const { getQuestionsByPaperId, getPaperById } = require('../../../utils/exam-data');
 const { requireLogin } = require('../../../utils/auth');
+const {
+  hasPremiumAccessLocal,
+  isAgentLocal,
+  refreshPremiumAccess,
+  refreshMyAgentProfile,
+} = require('../../../utils/entitlement');
 
 function getProgressKey(paperId) {
   return `iiqe_progress_${paperId}`;
@@ -21,6 +27,12 @@ function shuffle(arr) {
     [list[i], list[j]] = [list[j], list[i]];
   }
   return list;
+}
+
+function hasPaperAccess(paper) {
+  if (!paper) return false;
+  if (!paper.premium) return true;
+  return hasPremiumAccessLocal() || isAgentLocal();
 }
 
 Page({
@@ -48,6 +60,16 @@ Page({
     const mode = options.mode || 'chapter';
     const chapterNo = options.chapterNo || '';
     const paper = getPaperById(paperId);
+    if (!paper) {
+      wx.showToast({ title: '试卷不存在', icon: 'none' });
+      this.backToPaper();
+      return;
+    }
+    if (!hasPaperAccess(paper)) {
+      wx.showToast({ title: '该试卷需先授权', icon: 'none' });
+      this.backToPaper();
+      return;
+    }
     let navTitle = (paper && paper.title) || '练习';
     if (mode === 'wrong') navTitle = '错题集';
     if (mode === 'favorite') navTitle = '收藏题';
@@ -76,6 +98,7 @@ Page({
         finished: true,
         emptyReason: '当前模式暂无题目',
       });
+      wx.setNavigationBarTitle({ title: navTitle });
       return;
     }
 
@@ -89,6 +112,28 @@ Page({
       isLastQuestion: source.length <= 1,
       isFavorite: (progress.favorites || []).includes(source[0].id),
     });
+    wx.setNavigationBarTitle({ title: navTitle });
+  },
+
+  async onShow() {
+    if (!requireLogin('/pages/exam/question/question')) return;
+    const paperId = this.data.paperId;
+    if (!paperId) return;
+    const paper = getPaperById(paperId);
+    if (!paper || !paper.premium) return;
+    if (hasPaperAccess(paper)) return;
+
+    try {
+      const [premium, profile] = await Promise.all([
+        refreshPremiumAccess(),
+        refreshMyAgentProfile(),
+      ]);
+      const isAgent = !!(profile && profile.isAgent && profile.status !== 'disabled');
+      if (premium || isAgent) return;
+    } catch (err) {}
+
+    wx.showToast({ title: '授权状态已失效', icon: 'none' });
+    this.backToPaper();
   },
 
   chooseOption(e) {

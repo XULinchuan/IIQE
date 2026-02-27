@@ -1,5 +1,11 @@
 const { getPaperById, getQuestionsByPaperId, chapterTitleMap } = require('../../../utils/exam-data');
 const { requireLogin } = require('../../../utils/auth');
+const {
+  hasPremiumAccessLocal,
+  isAgentLocal,
+  refreshPremiumAccess,
+  refreshMyAgentProfile,
+} = require('../../../utils/entitlement');
 
 function getProgressKey(paperId) {
   return `iiqe_progress_${paperId}`;
@@ -12,6 +18,12 @@ function initProgress() {
     favorites: [],
     wrongIds: [],
   };
+}
+
+function hasPaperAccess(paper) {
+  if (!paper) return false;
+  if (!paper.premium) return true;
+  return hasPremiumAccessLocal() || isAgentLocal();
 }
 
 Page({
@@ -34,6 +46,11 @@ Page({
       this.safeBack('/pages/exam/home/home');
       return;
     }
+    if (!hasPaperAccess(paper)) {
+      wx.showToast({ title: '该试卷需先授权', icon: 'none' });
+      this.safeBack('/pages/exam/home/home');
+      return;
+    }
     this.setData({
       paperId,
       paperTitle: paper.title,
@@ -44,7 +61,27 @@ Page({
 
   onShow() {
     if (!requireLogin('/pages/exam/paper/paper')) return;
+    if (this.data.paperId) this.enforcePaperAccess();
     if (this.data.paperId) this.refreshStats();
+  },
+
+  async enforcePaperAccess() {
+    const paper = getPaperById(this.data.paperId);
+    if (!paper || !paper.premium) return true;
+    if (hasPaperAccess(paper)) return true;
+
+    try {
+      const [premium, profile] = await Promise.all([
+        refreshPremiumAccess(),
+        refreshMyAgentProfile(),
+      ]);
+      const isAgent = !!(profile && profile.isAgent && profile.status !== 'disabled');
+      if (premium || isAgent) return true;
+    } catch (err) {}
+
+    wx.showToast({ title: '授权状态已失效', icon: 'none' });
+    this.safeBack('/pages/exam/home/home');
+    return false;
   },
 
   refreshStats() {
@@ -110,7 +147,9 @@ Page({
     this.safeBack('/pages/exam/home/home');
   },
 
-  openQuestion(url) {
+  async openQuestion(url) {
+    const ok = await this.enforcePaperAccess();
+    if (!ok) return;
     wx.navigateTo({
       url,
       fail: () => {

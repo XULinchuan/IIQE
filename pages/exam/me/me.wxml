@@ -1,26 +1,19 @@
-<view class="page">
-  <view class="nav-row">
-    <view class="back-btn" bindtap="back">返回</view>
-  </view>
-
-  <view class="user-card">
+<view class="page"><view class="user-card">
     <view class="user-main">
-      <image
-        wx:if="{{isLoggedIn && user.avatarUrl}}"
-        class="avatar"
-        mode="aspectFill"
-        src="{{user.avatarUrl}}"
-      />
+      <view wx:if="{{isLoggedIn}}" class="avatar-wrap">
+        <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+          <image wx:if="{{user.avatarUrl}}" class="avatar" mode="aspectFill" src="{{user.avatarUrl}}" />
+          <view wx:else class="avatar placeholder">+</view>
+        </button>
+      </view>
       <view wx:else class="avatar placeholder">?</view>
       <view class="user-info">
-        <view class="nick">{{isLoggedIn ? user.nickName : '未登录'}}</view>
-        <view class="sub">
-          {{isLoggedIn ? '已通过微信登录' : '扫码进入后点击登录/注册，同步微信头像昵称'}}
-        </view>
+        <view wx:if="{{isLoggedIn}}" class="nick">{{user.nickName || '微信用户'}}</view>
+        <view wx:else class="nick">未登录</view>
+        <view wx:if="{{!isLoggedIn}}" class="sub">扫码进入后点击登录/注册</view>
       </view>
     </view>
     <view wx:if="{{!isLoggedIn}}" class="login-btn" bindtap="loginOrRegister">微信登录 / 注册</view>
-    <view wx:if="{{isLoggedIn}}" class="logout-btn" bindtap="logout">退出登录</view>
   </view>
 
   <view class="record-wrap" bindtap="openRecords">
@@ -64,6 +57,7 @@
         <input
           class="code-input"
           placeholder="请输入授权码"
+          maxlength="20"
           value="{{activationCode}}"
           bindinput="onActivationInput"
         />
@@ -85,6 +79,7 @@
         <input
           class="code-input"
           placeholder="请输入代理人码"
+          maxlength="20"
           value="{{agentCode}}"
           bindinput="onAgentCodeInput"
         />

@@ -39,6 +39,7 @@
         <input
           class="code-input"
           placeholder="请输入授权码"
+          maxlength="20"
           value="{{activationCode}}"
           bindinput="onActivationInput"
         />

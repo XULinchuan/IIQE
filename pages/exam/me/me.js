@@ -78,7 +78,7 @@ Page({
 
   loginOrRegister() {
     wx.getUserProfile({
-      desc: '用于展示头像昵称和创建学习账号',
+      desc: '用于获取微信昵称',
       success: (res) => {
         const wxUser = res.userInfo || {};
         const oldUser = wx.getStorageSync(getUserKey());
@@ -86,7 +86,7 @@ Page({
           ? {
               ...oldUser,
               nickName: wxUser.nickName || oldUser.nickName || '微信用户',
-              avatarUrl: wxUser.avatarUrl || oldUser.avatarUrl || '',
+              avatarUrl: oldUser.avatarUrl || wxUser.avatarUrl || '',
               updatedAt: Date.now(),
             }
           : buildUserFromWx(wxUser);
@@ -107,24 +107,26 @@ Page({
         }
       },
       fail: () => {
-        wx.showToast({ title: '未授权用户信息', icon: 'none' });
+        wx.showToast({ title: '未授权微信昵称', icon: 'none' });
       },
     });
   },
 
-  logout() {
-    wx.removeStorageSync(getUserKey());
-    setPremiumAccess(false);
-    setAgentProfile(null);
-    this.setData({
-      user: null,
-      isLoggedIn: false,
-      hasPremiumAccess: false,
-      isAgent: false,
-      agentStatus: '',
-      agentId: '',
-    });
-    wx.showToast({ title: '已退出登录', icon: 'none' });
+  onChooseAvatar(e) {
+    if (!this.data.isLoggedIn) return;
+    const avatarUrl = e && e.detail && e.detail.avatarUrl;
+    if (!avatarUrl) {
+      wx.showToast({ title: '未选择头像', icon: 'none' });
+      return;
+    }
+    const user = {
+      ...(this.data.user || {}),
+      avatarUrl,
+      updatedAt: Date.now(),
+    };
+    wx.setStorageSync(getUserKey(), user);
+    this.setData({ user });
+    wx.showToast({ title: '头像已更新', icon: 'success' });
   },
 
   openActivationDialog() {
@@ -152,7 +154,7 @@ Page({
   onActivationInput(e) {
     const value = ((e && e.detail && e.detail.value) || '').toUpperCase();
     this.setData({
-      activationCode: value.replace(/\s+/g, ''),
+      activationCode: value.replace(/\s+/g, '').slice(0, 20),
     });
   },
 
@@ -160,7 +162,7 @@ Page({
     wx.getClipboardData({
       success: (res) => {
         const text = ((res && res.data) || '').toUpperCase().replace(/\s+/g, '');
-        this.setData({ activationCode: text });
+        this.setData({ activationCode: text.slice(0, 20) });
       },
       fail: () => {
         wx.showToast({ title: '粘贴失败', icon: 'none' });
@@ -199,12 +201,10 @@ Page({
         });
         wx.showToast({ title: '授权成功', icon: 'success' });
       } else {
-        const message = (res && res.result && res.result.message) || '授权码无效';
-        wx.showToast({ title: message, icon: 'none' });
+        wx.showToast({ title: '授权码无效或已使用', icon: 'none' });
       }
     } catch (err) {
-      const message = (err && err.errMsg) || '授权失败';
-      wx.showToast({ title: message, icon: 'none' });
+      wx.showToast({ title: '授权失败，请稍后重试', icon: 'none' });
     } finally {
       this.setData({ redeeming: false });
     }
@@ -235,7 +235,7 @@ Page({
   onAgentCodeInput(e) {
     const value = ((e && e.detail && e.detail.value) || '').toUpperCase();
     this.setData({
-      agentCode: value.replace(/\s+/g, ''),
+      agentCode: value.replace(/\s+/g, '').slice(0, 20),
     });
   },
 
@@ -276,10 +276,10 @@ Page({
         });
         wx.showToast({ title: result.alreadyAgent ? '已是代理人' : '代理人开通成功', icon: 'success' });
       } else {
-        wx.showToast({ title: (result && result.message) || '代理人码无效', icon: 'none' });
+        wx.showToast({ title: '代理人码无效或已使用', icon: 'none' });
       }
     } catch (err) {
-      wx.showToast({ title: (err && err.errMsg) || '兑换失败', icon: 'none' });
+      wx.showToast({ title: '兑换失败，请稍后重试', icon: 'none' });
     } finally {
       this.setData({ redeemingAgent: false });
     }
@@ -289,7 +289,7 @@ Page({
     wx.getClipboardData({
       success: (res) => {
         const text = ((res && res.data) || '').toUpperCase().replace(/\s+/g, '');
-        this.setData({ agentCode: text });
+        this.setData({ agentCode: text.slice(0, 20) });
       },
       fail: () => {
         wx.showToast({ title: '粘贴失败', icon: 'none' });

@@ -8,22 +8,6 @@ function getProgressKey(paperId) {
 Page({
   data: {
     rows: [],
-    navTop: 0,
-    navHeight: 0,
-  },
-
-  onLoad() {
-    const sys = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {};
-    const menu = wx.getMenuButtonBoundingClientRect ? wx.getMenuButtonBoundingClientRect() : null;
-    const statusBarHeight = Number(sys.statusBarHeight || 20);
-    const menuTop = Number((menu && menu.top) || 0);
-    const menuHeight = Number((menu && menu.height) || 32);
-    const navTop = menuTop > 0 ? menuTop : statusBarHeight;
-    const navHeight = menuHeight > 0 ? menuHeight : 32;
-    this.setData({
-      navTop,
-      navHeight,
-    });
   },
 
   onShow() {

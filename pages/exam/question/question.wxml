@@ -1,10 +1,4 @@
-<view class="page" wx:if="{{!finished && current}}">
-  <view class="nav-row">
-    <view class="back-btn" bindtap="backToPaper">返回</view>
-    <view class="nav-title">{{navTitle}}</view>
-    <view class="nav-spacer"></view>
-  </view>
-  <view class="head">
+<view class="page" wx:if="{{!finished && current}}"><view class="head">
     <view class="progress">第 {{idx + 1}} / {{questions.length}} 题</view>
     <view class="actions">
       <view class="btn light" bindtap="toggleFavorite">{{isFavorite ? '取消收藏' : '收藏'}}</view>
