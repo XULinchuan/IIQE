@@ -14,12 +14,10 @@ exports.main = async () => {
     const res = await db.collection('iiqe_entitlements').doc(OPENID).get();
     return {
       hasAccess: !!(res && res.data && res.data.premium === true),
-      openid: OPENID,
     };
   } catch (err) {
     return {
       hasAccess: false,
-      openid: OPENID,
     };
   }
 };

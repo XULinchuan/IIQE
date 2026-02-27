@@ -15,7 +15,7 @@ async function checkRateLimit(openId, action, limit, windowSec) {
     const count = doc && doc.windowStart === windowStart ? Number(doc.count || 0) : 0;
     if (count >= limit) {
       await tx.rollback();
-      return false;
+      return { ok: true, limited: true };
     }
     await tx.collection('iiqe_rate_limits').doc(key).set({
       data: {
@@ -27,10 +27,10 @@ async function checkRateLimit(openId, action, limit, windowSec) {
       },
     });
     await tx.commit();
-    return true;
+    return { ok: true, limited: false };
   } catch (err) {
     try { await tx.rollback(); } catch (e) {}
-    return false;
+    return { ok: false, limited: false };
   }
 }
 
@@ -40,8 +40,11 @@ exports.main = async (event = {}) => {
     return { ok: false, message: '用户身份无效' };
   }
 
-  const pass = await checkRateLimit(OPENID, 'agent_generate_share_code', 6, 60);
-  if (!pass) {
+  const rate = await checkRateLimit(OPENID, 'agent_generate_share_code', 6, 60);
+  if (!rate.ok) {
+    return { ok: false, message: '系统繁忙，请稍后再试' };
+  }
+  if (rate.limited) {
     return { ok: false, message: '请求过于频繁，请稍后再试' };
   }
 
