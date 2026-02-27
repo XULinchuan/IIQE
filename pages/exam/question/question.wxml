@@ -1,0 +1,43 @@
+<view class="page" wx:if="{{!finished && current}}">
+  <view class="nav-row">
+    <view class="back-btn" bindtap="backToPaper">返回</view>
+    <view class="nav-title">{{navTitle}}</view>
+    <view class="nav-spacer"></view>
+  </view>
+  <view class="head">
+    <view class="progress">第 {{idx + 1}} / {{questions.length}} 题</view>
+    <view class="actions">
+      <view class="btn light" bindtap="toggleFavorite">{{isFavorite ? '取消收藏' : '收藏'}}</view>
+      <view wx:if="{{mode !== 'wrong'}}" class="btn warn" bindtap="resetPaperProgress">清进度</view>
+    </view>
+  </view>
+
+  <view class="q-card">
+    <view class="q-meta">{{current.chapterName}} · {{current.chapter}}</view>
+    <view class="q-title">{{current.no}}. {{current.stem}}</view>
+
+    <view
+      wx:for="{{current.options}}"
+      wx:key="index"
+      class="opt {{selected === index ? 'active' : ''}} {{submitted && index === current.answer ? 'correct' : ''}} {{submitted && selected === index && selected !== current.answer ? 'wrong' : ''}}"
+      data-index="{{index}}"
+      bindtap="chooseOption"
+    >
+      <text class="label">{{['A','B','C','D'][index]}}.</text>
+      <text class="text">{{item}}</text>
+    </view>
+
+    <view wx:if="{{submitted}}" class="explain">解析：{{current.explain}}</view>
+  </view>
+
+  <view class="bottom">
+    <view wx:if="{{submitted && showNextButton && !isLastQuestion}}" class="bottom-btn" bindtap="nextQuestion">下一题</view>
+    <view wx:elif="{{submitted && showNextButton && isLastQuestion}}" class="auto-next-tip">已是最后一题</view>
+    <view wx:elif="{{submitted && isCurrentCorrect}}" class="auto-next-tip">回答正确，1秒后自动进入下一题</view>
+  </view>
+</view>
+
+<view wx:else class="empty">
+  <view class="empty-title">{{emptyReason || '当前练习没有题目或已完成'}}</view>
+  <view class="empty-btn" bindtap="backToPaper">返回试卷</view>
+</view>

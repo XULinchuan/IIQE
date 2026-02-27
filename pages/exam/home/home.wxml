@@ -1,0 +1,52 @@
+<view class="page">
+  <view class="head-row">
+    <view class="title">IIQE 题库</view>
+    <view class="me-link" bindtap="goMe">我的</view>
+  </view>
+
+  <view class="type-tabs">
+    <view
+      wx:for="{{typeTabs}}"
+      wx:key="*this"
+      class="type-pill {{activeType === item ? 'active' : ''}}"
+      data-type="{{item}}"
+      bindtap="switchType"
+    >
+      {{item}}
+    </view>
+  </view>
+
+  <view class="grid">
+    <view class="card" wx:for="{{papers}}" wx:key="id" data-id="{{item.id}}" bindtap="goPaper">
+      <view class="card-title">{{item.title}}</view>
+      <view class="card-sub">{{item.total}} 题</view>
+      <view wx:if="{{item.premium && item.unlocked}}" class="tag authorized">已授权</view>
+      <view wx:elif="{{item.premium}}" class="tag premium">需授权</view>
+      <view wx:else class="tag trial">试用</view>
+    </view>
+  </view>
+
+  <view wx:if="{{showActivationDialog}}" class="dialog-mask" bindtap="closeActivationDialog">
+    <view class="dialog-card" catchtap="noop">
+      <view class="dialog-close" bindtap="closeActivationDialog">×</view>
+      <view class="dialog-title">此题库需要授权访问</view>
+      <view class="dialog-sub">请添加微信获取授权码（长按识别二维码）</view>
+      <view class="qr-wrap">
+        <image class="qr-image" mode="aspectFit" src="{{activationQrSrc}}"></image>
+      </view>
+      <view class="code-row">
+        <view class="code-label">授权码</view>
+        <input
+          class="code-input"
+          placeholder="请输入授权码"
+          value="{{activationCode}}"
+          bindinput="onActivationInput"
+        />
+        <view class="paste-btn" bindtap="pasteActivationCode">粘贴</view>
+      </view>
+      <view class="verify-btn {{redeeming ? 'disabled' : ''}}" bindtap="redeemActivationCode">
+        {{redeeming ? '验证中...' : '验证'}}
+      </view>
+    </view>
+  </view>
+</view>

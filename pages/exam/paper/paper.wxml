@@ -1,0 +1,45 @@
+<view class="page">
+  <view class="nav-row">
+    <view class="back-btn" bindtap="back">返回</view>
+    <view class="nav-title">{{paperTitle}}</view>
+    <view class="nav-spacer"></view>
+  </view>
+  <view class="stats-card">
+    <view class="stats-title">答题情况</view>
+    <view class="stats-grid">
+      <view class="metric">
+        <view class="num right">{{correct}}</view>
+        <view class="metric-label">答对</view>
+      </view>
+      <view class="metric">
+        <view class="num done">{{answered}}</view>
+        <view class="metric-label">已答</view>
+      </view>
+      <view class="metric">
+        <view class="num">{{total}}</view>
+        <view class="metric-label">总题数</view>
+      </view>
+      <view class="metric">
+        <view class="num warn">{{accuracy}}</view>
+        <view class="metric-label">正确率</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="quick-card">
+    <view class="quick-item" bindtap="startRandom">随机练习</view>
+    <view class="quick-item" bindtap="startWrong">错题集</view>
+    <view class="quick-item" bindtap="startFavorite">我的收藏</view>
+  </view>
+
+  <view class="chapter-card">
+    <view class="section-title">章节练习</view>
+    <view wx:for="{{chapterStats}}" wx:key="chapterNo" class="chapter-row" data-chapter-no="{{item.chapterNo}}" bindtap="startChapter">
+      <view class="left">
+        <view class="title">{{item.title}}</view>
+        <view class="sub">正确率 {{item.accuracy}}</view>
+      </view>
+      <view class="chapter-right">{{item.answered}}/{{item.total}}题</view>
+    </view>
+  </view>
+</view>

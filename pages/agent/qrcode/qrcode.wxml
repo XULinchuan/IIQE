@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="nav-row">
+    <view class="back-btn" bindtap="back">返回</view>
+    <view class="nav-title">代理人中心</view>
+    <view class="nav-spacer"></view>
+  </view>
+
+  <view class="card">
+    <view class="label">代理人ID</view>
+    <view class="value">{{agentId || '-'}}</view>
+    <view class="sub">状态：{{status || '-'}}</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">专属小程序码</view>
+    <view class="action-btn" bindtap="generateShareCode">{{generating ? '生成中...' : '生成/刷新专属码'}}</view>
+    <image wx:if="{{shareCodeFileID}}" class="code-image" mode="aspectFit" src="{{shareCodeFileID}}" bindtap="previewShareCode"></image>
+  </view>
+
+  <view class="card">
+    <view class="section-title">我的微信二维码</view>
+    <view class="action-btn" bindtap="uploadMyWxQr">{{uploadingQr ? '上传中...' : '上传/更新二维码'}}</view>
+    <image wx:if="{{wxQrFileID}}" class="code-image" mode="aspectFit" src="{{wxQrFileID}}" bindtap="previewMyQr"></image>
+  </view>
+</view>

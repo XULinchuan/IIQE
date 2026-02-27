@@ -44,6 +44,7 @@
     "useCompilerPlugins": false
   },
   "compileType": "miniprogram",
+  "cloudfunctionRoot": "cloudfunctions",
   "libVersion": "3.6.3",
   "appid": "wx7dc256d25cb2da54",
   "projectname": "TDesign",
@@ -418,5 +419,6 @@
   "editorSetting": {
     "tabIndent": "auto",
     "tabSize": 2
-  }
+  },
+  "cloudfunctionTemplateRoot": "cloudfunctionTemplate/"
 }

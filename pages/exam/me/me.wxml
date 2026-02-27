@@ -1,0 +1,98 @@
+<view class="page">
+  <view class="nav-row">
+    <view class="back-btn" bindtap="back">返回</view>
+  </view>
+
+  <view class="user-card">
+    <view class="user-main">
+      <image
+        wx:if="{{isLoggedIn && user.avatarUrl}}"
+        class="avatar"
+        mode="aspectFill"
+        src="{{user.avatarUrl}}"
+      />
+      <view wx:else class="avatar placeholder">?</view>
+      <view class="user-info">
+        <view class="nick">{{isLoggedIn ? user.nickName : '未登录'}}</view>
+        <view class="sub">
+          {{isLoggedIn ? '已通过微信登录' : '扫码进入后点击登录/注册，同步微信头像昵称'}}
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{!isLoggedIn}}" class="login-btn" bindtap="loginOrRegister">微信登录 / 注册</view>
+    <view wx:if="{{isLoggedIn}}" class="logout-btn" bindtap="logout">退出登录</view>
+  </view>
+
+  <view class="record-wrap" bindtap="openRecords">
+    <view class="record-head">
+      <view class="title">我的学习记录</view>
+      <view class="fold">进入</view>
+    </view>
+  </view>
+
+  <view class="record-wrap auth-wrap" bindtap="openActivationDialog">
+    <view class="record-head">
+      <view class="title">输入授权码</view>
+      <view class="fold">{{hasPremiumAccess ? '已授权' : '去输入'}}</view>
+    </view>
+  </view>
+
+  <view class="record-wrap auth-wrap" bindtap="openAgentDialog">
+    <view class="record-head">
+      <view class="title">我是代理人</view>
+      <view class="fold">{{isAgent ? '已开通' : '输入代理人码'}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{isAgent}}" class="record-wrap auth-wrap" bindtap="openAgentCenter">
+    <view class="record-head">
+      <view class="title">代理人中心</view>
+      <view class="fold">进入</view>
+    </view>
+  </view>
+
+  <view wx:if="{{showActivationDialog}}" class="dialog-mask" bindtap="closeActivationDialog">
+    <view class="dialog-card" catchtap="noop">
+      <view class="dialog-close" bindtap="closeActivationDialog">×</view>
+      <view class="dialog-title">此题库需要授权访问</view>
+      <view class="dialog-sub">请添加微信获取授权码（长按识别二维码）</view>
+      <view class="qr-wrap">
+        <image class="qr-image" mode="aspectFit" src="{{activationQrSrc}}"></image>
+      </view>
+      <view class="code-row">
+        <view class="code-label">授权码</view>
+        <input
+          class="code-input"
+          placeholder="请输入授权码"
+          value="{{activationCode}}"
+          bindinput="onActivationInput"
+        />
+        <view class="paste-btn" bindtap="pasteActivationCode">粘贴</view>
+      </view>
+      <view class="verify-btn {{redeeming ? 'disabled' : ''}}" bindtap="redeemActivationCode">
+        {{redeeming ? '验证中...' : '验证'}}
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showAgentDialog}}" class="dialog-mask" bindtap="closeAgentDialog">
+    <view class="dialog-card" catchtap="noop">
+      <view class="dialog-close" bindtap="closeAgentDialog">×</view>
+      <view class="dialog-title">开通代理人</view>
+      <view class="dialog-sub">请输入一次性代理人码，开通后可生成专属分享码</view>
+      <view class="code-row">
+        <view class="code-label">代理人码</view>
+        <input
+          class="code-input"
+          placeholder="请输入代理人码"
+          value="{{agentCode}}"
+          bindinput="onAgentCodeInput"
+        />
+        <view class="paste-btn" bindtap="pasteAgentCode">粘贴</view>
+      </view>
+      <view class="verify-btn {{redeemingAgent ? 'disabled' : ''}}" bindtap="redeemAgentCode">
+        {{redeemingAgent ? '验证中...' : '开通代理人'}}
+      </view>
+    </view>
+  </view>
+</view>

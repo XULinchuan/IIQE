@@ -1,6 +1,12 @@
 {
   "darkmode": true,
   "pages": [
+    "pages/exam/home/home",
+    "pages/exam/paper/paper",
+    "pages/exam/question/question",
+    "pages/exam/me/me",
+    "pages/exam/records/records",
+    "pages/agent/qrcode/qrcode",
     "pages/home/home",
     "pages/button/button",
     "pages/button/skyline/button",

@@ -1,0 +1,138 @@
+.page {
+  min-height: 100vh;
+  background: #f6f7f9;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 56rpx;
+  padding: 0 20rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  color: #111;
+  font-size: 26rpx;
+}
+
+.nav-title {
+  flex: 1;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #111;
+  margin: 0 12rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-spacer {
+  width: 92rpx;
+}
+
+.stats-card,
+.quick-card,
+.chapter-card {
+  background: #fff;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.stats-title,
+.section-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 18rpx;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10rpx;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+}
+
+.num {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 72rpx;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #111;
+}
+
+.metric-label {
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.2;
+}
+
+.num.right { color: #16a34a; }
+.num.done { color: #e11d48; }
+.num.warn { color: #f59e0b; }
+
+.quick-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12rpx;
+}
+
+.quick-item {
+  height: 88rpx;
+  border-radius: 14rpx;
+  background: #f3f4f6;
+  font-size: 28rpx;
+  color: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chapter-row {
+  height: 108rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chapter-row:last-child {
+  border-bottom: none;
+}
+
+.title {
+  font-size: 30rpx;
+  color: #111;
+}
+
+.sub {
+  font-size: 24rpx;
+  color: #0f766e;
+  margin-top: 6rpx;
+}
+
+.chapter-right {
+  font-size: 28rpx;
+  color: #666;
+}
