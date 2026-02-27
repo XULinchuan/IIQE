@@ -1,0 +1,12 @@
+<view class="pullDownList t-class {{ childBoxHeight > 0 ? 'actived' : '' }}">
+  <view class="switchBox" aria-role="button" aria-expanded="{{!!childBoxHeight}}" catch:tap="switchHandle">
+    <view class="name">{{ name }}</view>
+    <image class="icon-img" src="{{iconSrc}}" mode="aspectFit" aria-hidden />
+  </view>
+  <view class="childBox" style="height: {{ childBoxHeight }}rpx" aria-hidden="{{childBoxHeight ? '' : true}}">
+    <view class="child" wx:for="{{childArr}}" wx:key="name" data-item="{{item}}" aria-role="button" bind:tap="tapChild">
+      {{ item.name }} {{ item.label }}
+      <image class="arrow-img" src="{{rightIconSrc}}" mode="aspectFit" aria-hidden />
+    </view>
+  </view>
+</view>
