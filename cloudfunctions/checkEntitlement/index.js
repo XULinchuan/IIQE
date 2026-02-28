@@ -7,16 +7,18 @@ const db = cloud.database();
 exports.main = async () => {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) {
-    return { hasAccess: false };
+    return { ok: false, hasAccess: false };
   }
 
   try {
     const res = await db.collection('iiqe_entitlements').doc(OPENID).get();
     return {
+      ok: true,
       hasAccess: !!(res && res.data && res.data.premium === true),
     };
   } catch (err) {
     return {
+      ok: false,
       hasAccess: false,
     };
   }

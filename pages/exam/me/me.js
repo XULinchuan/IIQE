@@ -126,15 +126,35 @@ Page({
       return;
     }
     let avatarUrl = rawAvatarUrl;
-    if (!/^https?:\/\//.test(rawAvatarUrl) && !/^cloud:\/\//.test(rawAvatarUrl)) {
+    if (!/^cloud:\/\//.test(rawAvatarUrl)) {
       if (!wx.cloud || !wx.cloud.uploadFile) {
         wx.showToast({ title: '头像更新失败，请稍后重试', icon: 'none' });
         return;
       }
+      let uploadPath = rawAvatarUrl;
+      if (/^https?:\/\//.test(rawAvatarUrl)) {
+        try {
+          const dl = await new Promise((resolve, reject) => {
+            wx.downloadFile({
+              url: rawAvatarUrl,
+              success: resolve,
+              fail: reject,
+            });
+          });
+          if (!(dl && dl.statusCode === 200 && dl.tempFilePath)) {
+            wx.showToast({ title: '头像更新失败，请稍后重试', icon: 'none' });
+            return;
+          }
+          uploadPath = dl.tempFilePath;
+        } catch (err) {
+          wx.showToast({ title: '头像更新失败，请稍后重试', icon: 'none' });
+          return;
+        }
+      }
       try {
         const upload = await wx.cloud.uploadFile({
           cloudPath: `user-avatars/${this.data.user.id}-${Date.now()}.jpg`,
-          filePath: rawAvatarUrl,
+          filePath: uploadPath,
         });
         avatarUrl = upload.fileID;
       } catch (err) {

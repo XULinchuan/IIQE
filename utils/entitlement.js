@@ -53,9 +53,13 @@ async function refreshPremiumAccess() {
     const res = await wx.cloud.callFunction({
       name: 'checkEntitlement',
     });
-    const enabled = !!(res && res.result && res.result.hasAccess);
-    setPremiumAccess(enabled);
-    return enabled;
+    const result = res && res.result;
+    const hasAccess = !!(result && result.hasAccess);
+    if (result && result.ok === true) {
+      setPremiumAccess(hasAccess);
+      return hasAccess;
+    }
+    return hasPremiumAccessLocal();
   } catch (err) {
     return hasPremiumAccessLocal();
   }

@@ -134,4 +134,46 @@ describe('cloud function input validation and key branches', () => {
     expect(result.ok).toBe(false);
     expect(result.message).toBe('请求过于频繁，请稍后再试');
   });
+
+  test('checkEntitlement returns ok=true when entitlement exists', async () => {
+    const collectionImpl = jest.fn((name) => {
+      if (name === 'iiqe_entitlements') {
+        return {
+          doc: jest.fn(() => ({
+            get: jest.fn(async () => ({ data: { premium: true } })),
+          })),
+        };
+      }
+      return {
+        doc: jest.fn(() => ({
+          get: jest.fn(async () => ({ data: null })),
+        })),
+      };
+    });
+    const cloudMock = baseCloudMock({ collectionImpl });
+    const result = await runMain('../cloudfunctions/checkEntitlement/index.js', cloudMock, {});
+    expect(result.ok).toBe(true);
+    expect(result.hasAccess).toBe(true);
+  });
+
+  test('checkEntitlement returns ok=false when db throws', async () => {
+    const collectionImpl = jest.fn((name) => {
+      if (name === 'iiqe_entitlements') {
+        return {
+          doc: jest.fn(() => ({
+            get: jest.fn(async () => { throw new Error('db fail'); }),
+          })),
+        };
+      }
+      return {
+        doc: jest.fn(() => ({
+          get: jest.fn(async () => ({ data: null })),
+        })),
+      };
+    });
+    const cloudMock = baseCloudMock({ collectionImpl });
+    const result = await runMain('../cloudfunctions/checkEntitlement/index.js', cloudMock, {});
+    expect(result.ok).toBe(false);
+    expect(result.hasAccess).toBe(false);
+  });
 });

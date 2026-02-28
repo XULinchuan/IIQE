@@ -23,7 +23,7 @@ describe('utils/entitlement', () => {
   });
 
   test('refreshPremiumAccess updates local cache from cloud result', async () => {
-    wx.cloud.callFunction.mockResolvedValueOnce({ result: { hasAccess: true } });
+    wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: true, hasAccess: true } });
     const { refreshPremiumAccess, hasPremiumAccessLocal } = require('../utils/entitlement');
 
     const enabled = await refreshPremiumAccess();
@@ -40,6 +40,17 @@ describe('utils/entitlement', () => {
     const enabled = await refreshPremiumAccess();
 
     expect(enabled).toBe(true);
+  });
+
+  test('refreshPremiumAccess keeps local state when cloud returns ok=false', async () => {
+    const { setPremiumAccess, refreshPremiumAccess, hasPremiumAccessLocal } = require('../utils/entitlement');
+    setPremiumAccess(true);
+    wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: false, hasAccess: false } });
+
+    const enabled = await refreshPremiumAccess();
+
+    expect(enabled).toBe(true);
+    expect(hasPremiumAccessLocal()).toBe(true);
   });
 
   test('refreshMyAgentProfile writes profile to local cache', async () => {

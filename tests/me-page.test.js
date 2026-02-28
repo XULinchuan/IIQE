@@ -154,6 +154,15 @@ describe('pages/exam/me/me.js', () => {
     upsertUserProfileToCloud.mockResolvedValueOnce({ ok: true, user: { id: 'u1', nickName: 'N', avatarUrl: 'cloud://avatar.jpg' } });
     await page.onChooseAvatar({ detail: { avatarUrl: '/tmp/a.jpg' } });
     expect(page.data.user.avatarUrl).toBe('cloud://avatar.jpg');
+
+    wx.downloadFile = jest.fn(({ success }) => success({ statusCode: 200, tempFilePath: '/tmp/from-http.jpg' }));
+    wx.cloud.uploadFile.mockResolvedValueOnce({ fileID: 'cloud://avatar-http.jpg' });
+    upsertUserProfileToCloud.mockResolvedValueOnce({ ok: true, user: { id: 'u1', nickName: 'N', avatarUrl: 'cloud://avatar-http.jpg' } });
+    await page.onChooseAvatar({ detail: { avatarUrl: 'https://tmp.example.com/avatar.jpg' } });
+    expect(wx.downloadFile).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'https://tmp.example.com/avatar.jpg' }),
+    );
+    expect(page.data.user.avatarUrl).toBe('cloud://avatar-http.jpg');
   });
 
   test('openAgentCenter and back route fallback', () => {
