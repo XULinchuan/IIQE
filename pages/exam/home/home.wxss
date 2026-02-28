@@ -192,9 +192,10 @@
 }
 
 .code-label {
-  width: 112rpx;
+  width: 152rpx;
   font-size: 34rpx;
   color: #111;
+  white-space: nowrap;
 }
 
 .code-input {
