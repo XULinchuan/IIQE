@@ -38,7 +38,6 @@ Page({
   },
 
   async onLoad(options) {
-    if (!await requireLogin('/pages/exam/paper/paper')) return;
     const paperId = options.paperId || '';
     const paper = getPaperById(paperId);
     if (!paper) {
@@ -46,6 +45,7 @@ Page({
       this.safeBack('/pages/exam/home/home');
       return;
     }
+    if (paper.premium && !await requireLogin('/pages/exam/paper/paper')) return;
     if (!hasPaperAccess(paper)) {
       wx.showToast({ title: '该试卷需先授权', icon: 'none' });
       this.safeBack('/pages/exam/home/home');
@@ -60,9 +60,15 @@ Page({
   },
 
   async onShow() {
-    if (!await requireLogin('/pages/exam/paper/paper')) return;
-    if (this.data.paperId) this.enforcePaperAccess();
-    if (this.data.paperId) this.refreshStats();
+    const paperId = this.data.paperId;
+    if (!paperId) return;
+    const paper = getPaperById(paperId);
+    if (!paper) return;
+    if (paper.premium) {
+      if (!await requireLogin('/pages/exam/paper/paper')) return;
+      this.enforcePaperAccess();
+    }
+    this.refreshStats();
   },
 
   async enforcePaperAccess() {

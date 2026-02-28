@@ -1,8 +1,15 @@
 const { loadPage, createPageInstance } = require('./pageTestUtils');
 
-function mockDeps({ premiumLocal = true, agentLocal = false, refreshPremium = false, refreshAgent = false } = {}) {
+function mockDeps({
+  premiumLocal = true,
+  agentLocal = false,
+  refreshPremium = false,
+  refreshAgent = false,
+  requireOk = true,
+  paperPremium = true,
+} = {}) {
   jest.doMock('../utils/auth', () => ({
-    requireLogin: jest.fn().mockResolvedValue(true),
+    requireLogin: jest.fn().mockResolvedValue(requireOk),
   }));
   jest.doMock('../utils/entitlement', () => ({
     hasPremiumAccessLocal: jest.fn(() => premiumLocal),
@@ -11,7 +18,7 @@ function mockDeps({ premiumLocal = true, agentLocal = false, refreshPremium = fa
     refreshMyAgentProfile: jest.fn(async () => ({ isAgent: refreshAgent, status: refreshAgent ? 'active' : 'disabled' })),
   }));
   jest.doMock('../utils/exam-data', () => ({
-    getPaperById: jest.fn((paperId) => (paperId ? { id: paperId, title: 'Test Paper', premium: true } : null)),
+    getPaperById: jest.fn((paperId) => (paperId ? { id: paperId, title: 'Test Paper', premium: paperPremium } : null)),
     getQuestionsByPaperId: jest.fn(() => [
       { id: 'q1', chapter: '1.1', answer: 0 },
       { id: 'q2', chapter: '1.2', answer: 1 },
@@ -190,5 +197,17 @@ describe('pages/exam/question/question.js', () => {
     page._nextTimer = setTimeout(() => {}, 1000);
     page.onUnload();
     expect(() => jest.runOnlyPendingTimers()).not.toThrow();
+  });
+
+  test('onLoad allows trial question page without login', async () => {
+    mockDeps({ requireOk: false, paperPremium: false, premiumLocal: false, agentLocal: false });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+
+    await page.onLoad({ paperId: 'p_trial', mode: 'chapter', chapterNo: '1' });
+
+    expect(page.data.paperId).toBe('p_trial');
+    expect(page.data.questions.length).toBeGreaterThan(0);
+    expect(wx.setNavigationBarTitle).toHaveBeenCalledWith({ title: 'Test Paper' });
   });
 });

@@ -1,8 +1,15 @@
 const { loadPage, createPageInstance } = require('./pageTestUtils');
 
-function mockDeps({ premiumLocal = false, agentLocal = false, refreshPremium = false, refreshAgent = false } = {}) {
+function mockDeps({
+  premiumLocal = false,
+  agentLocal = false,
+  refreshPremium = false,
+  refreshAgent = false,
+  requireOk = true,
+  paperPremium = true,
+} = {}) {
   jest.doMock('../utils/auth', () => ({
-    requireLogin: jest.fn().mockResolvedValue(true),
+    requireLogin: jest.fn().mockResolvedValue(requireOk),
   }));
   jest.doMock('../utils/entitlement', () => ({
     hasPremiumAccessLocal: jest.fn(() => premiumLocal),
@@ -11,7 +18,7 @@ function mockDeps({ premiumLocal = false, agentLocal = false, refreshPremium = f
     refreshMyAgentProfile: jest.fn(async () => ({ isAgent: refreshAgent, status: refreshAgent ? 'active' : 'disabled' })),
   }));
   jest.doMock('../utils/exam-data', () => ({
-    getPaperById: jest.fn((id) => (id ? { id, title: 'Paper', premium: true } : null)),
+    getPaperById: jest.fn((id) => (id ? { id, title: 'Paper', premium: paperPremium } : null)),
     getQuestionsByPaperId: jest.fn(() => [
       { id: 'q1', chapter: '1.1', answer: 0 },
       { id: 'q2', chapter: '1.2', answer: 1 },
@@ -77,5 +84,17 @@ describe('pages/exam/paper/paper.js', () => {
     await page.openQuestion('/pages/exam/question/question?paperId=p1&mode=random');
 
     expect(wx.navigateTo).not.toHaveBeenCalled();
+  });
+
+  test('onLoad allows trial paper without login', async () => {
+    mockDeps({ requireOk: false, paperPremium: false, premiumLocal: false, agentLocal: false });
+    const def = loadPage('../pages/exam/paper/paper.js');
+    const page = createPageInstance(def);
+
+    await page.onLoad({ paperId: 'p_trial' });
+
+    expect(page.data.paperId).toBe('p_trial');
+    expect(wx.setNavigationBarTitle).toHaveBeenCalledWith({ title: 'Paper' });
+    expect(wx.showToast).not.toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
   });
 });
