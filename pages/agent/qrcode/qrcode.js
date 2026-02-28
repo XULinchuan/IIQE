@@ -6,6 +6,16 @@ function isUserCanceled(err) {
   return msg.includes('cancel') || msg.includes('取消');
 }
 
+function isPermissionDenied(err) {
+  const msg = String((err && err.errMsg) || err || '').toLowerCase();
+  return msg.includes('auth deny') || msg.includes('authorize denied') || msg.includes('permission');
+}
+
+function pickMessage(result, fallback) {
+  const msg = result && typeof result.message === 'string' ? result.message.trim() : '';
+  return msg || fallback;
+}
+
 Page({
   data: {
     isAgent: false,
@@ -17,8 +27,8 @@ Page({
     uploadingQr: false,
   },
 
-  onShow() {
-    if (!requireLogin('/pages/agent/qrcode/qrcode')) return;
+  async onShow() {
+    if (!await requireLogin('/pages/agent/qrcode/qrcode')) return;
     this.loadProfile();
   },
 
@@ -52,7 +62,7 @@ Page({
         this.setData({ shareCodeFileID: result.fileID });
         wx.showToast({ title: '生成成功', icon: 'success' });
       } else {
-        wx.showToast({ title: '生成失败，请稍后重试', icon: 'none' });
+        wx.showToast({ title: pickMessage(result, '生成失败，请稍后重试'), icon: 'none' });
       }
     } catch (err) {
       wx.showToast({ title: '生成失败，请稍后重试', icon: 'none' });
@@ -105,11 +115,13 @@ Page({
         });
         wx.showToast({ title: '更新成功', icon: 'success' });
       } else {
-        wx.showToast({ title: '更新失败，请稍后重试', icon: 'none' });
+        wx.showToast({ title: pickMessage(result, '更新失败，请稍后重试'), icon: 'none' });
       }
     } catch (err) {
       if (isUserCanceled(err)) {
         wx.showToast({ title: '已取消上传', icon: 'none' });
+      } else if (isPermissionDenied(err)) {
+        wx.showToast({ title: '请在微信设置中开启相册权限', icon: 'none' });
       } else {
         wx.showToast({ title: '上传失败，请稍后重试', icon: 'none' });
       }

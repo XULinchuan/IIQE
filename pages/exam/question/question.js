@@ -54,8 +54,8 @@ Page({
     navTitle: '',
   },
 
-  onLoad(options) {
-    if (!requireLogin('/pages/exam/question/question')) return;
+  async onLoad(options) {
+    if (!await requireLogin('/pages/exam/question/question')) return;
     const paperId = options.paperId || '';
     const mode = options.mode || 'chapter';
     const chapterNo = options.chapterNo || '';
@@ -116,7 +116,7 @@ Page({
   },
 
   async onShow() {
-    if (!requireLogin('/pages/exam/question/question')) return;
+    if (!await requireLogin('/pages/exam/question/question')) return;
     const paperId = this.data.paperId;
     if (!paperId) return;
     const paper = getPaperById(paperId);

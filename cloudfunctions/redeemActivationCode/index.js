@@ -41,7 +41,7 @@ async function checkRateLimit(openId, action, limit, windowSec) {
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) {
-    return { ok: false, message: '用户身份无效' };
+    return { ok: false, message: '请先登录后再试' };
   }
 
   const rate = await checkRateLimit(OPENID, 'redeem_activation', 10, 60);

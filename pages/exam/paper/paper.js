@@ -37,8 +37,8 @@ Page({
     chapterStats: [],
   },
 
-  onLoad(options) {
-    if (!requireLogin('/pages/exam/paper/paper')) return;
+  async onLoad(options) {
+    if (!await requireLogin('/pages/exam/paper/paper')) return;
     const paperId = options.paperId || '';
     const paper = getPaperById(paperId);
     if (!paper) {
@@ -59,8 +59,8 @@ Page({
     this.refreshStats();
   },
 
-  onShow() {
-    if (!requireLogin('/pages/exam/paper/paper')) return;
+  async onShow() {
+    if (!await requireLogin('/pages/exam/paper/paper')) return;
     if (this.data.paperId) this.enforcePaperAccess();
     if (this.data.paperId) this.refreshStats();
   },

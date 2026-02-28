@@ -10,8 +10,8 @@ Page({
     rows: [],
   },
 
-  onShow() {
-    if (!requireLogin('/pages/exam/records/records')) return;
+  async onShow() {
+    if (!await requireLogin('/pages/exam/records/records')) return;
     this.loadRows();
   },
 

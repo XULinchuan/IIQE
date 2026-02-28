@@ -37,7 +37,7 @@ async function checkRateLimit(openId, action, limit, windowSec) {
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) {
-    return { ok: false, message: '用户身份无效' };
+    return { ok: false, message: '请先登录后再试' };
   }
 
   const wxQrFileID = String(event.wxQrFileID || '').trim();
@@ -56,10 +56,10 @@ exports.main = async (event = {}) => {
   const res = await db.collection('iiqe_agent_profiles').where({ openId: OPENID }).limit(1).get();
   const profile = (res.data && res.data[0]) || null;
   if (!profile) {
-    return { ok: false, message: '当前用户不是代理人' };
+    return { ok: false, message: '请先开通代理人' };
   }
   if ((profile.status || 'active') !== 'active') {
-    return { ok: false, message: '代理人状态不可用' };
+    return { ok: false, message: '当前代理人资格不可用，请联系管理员' };
   }
 
   await db.collection('iiqe_agent_profiles').doc(profile._id).update({

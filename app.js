@@ -1,5 +1,3 @@
-import gulpError from './utils/gulpError';
-
 function extractRefFromScene(scene) {
     const decoded = decodeURIComponent(scene || '');
     if (!decoded) return '';
@@ -31,11 +29,6 @@ App({
                     scene: options.scene || '',
                 },
             }).catch(() => {});
-        }
-        if (gulpError !== 'gulpErrorPlaceHolder') {
-            wx.redirectTo({
-                url: `/pages/gulp-error/index?gulpError=${gulpError}`,
-            });
         }
     },
 });

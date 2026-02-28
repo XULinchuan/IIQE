@@ -47,7 +47,7 @@ function buildAgentId() {
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) {
-    return { ok: false, message: '用户身份无效' };
+    return { ok: false, message: '请先登录后再试' };
   }
 
   const rate = await checkRateLimit(OPENID, 'redeem_agent_invite', 10, 60);

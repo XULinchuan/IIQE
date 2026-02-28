@@ -2,3 +2,4 @@
 *.txt
 *codes*.json
 codes.json
+node_modules/

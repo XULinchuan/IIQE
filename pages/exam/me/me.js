@@ -1,4 +1,9 @@
-const { getUserKey } = require('../../../utils/auth');
+const {
+  getUserLocal,
+  normalizeRedirectUrl,
+  restoreUserFromCloud,
+  upsertUserProfileToCloud,
+} = require('../../../utils/auth');
 const {
   hasPremiumAccessLocal,
   setPremiumAccess,
@@ -10,14 +15,9 @@ const {
   refreshActivationQrByUser,
 } = require('../../../utils/entitlement');
 
-function buildUserFromWx(userInfo) {
-  return {
-    id: `u_${Date.now()}`,
-    nickName: userInfo.nickName || '微信用户',
-    avatarUrl: userInfo.avatarUrl || '',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
+function pickMessage(result, fallback) {
+  const msg = result && typeof result.message === 'string' ? result.message.trim() : '';
+  return msg || fallback;
 }
 
 Page({
@@ -43,15 +43,18 @@ Page({
     }
   },
 
-  onShow() {
-    this.loadUser();
+  async onShow() {
+    await this.loadUser();
     this.loadEntitlement();
   },
 
-  loadUser() {
-    const user = wx.getStorageSync(getUserKey()) || null;
+  async loadUser() {
+    let user = getUserLocal();
+    if (!user) {
+      user = await restoreUserFromCloud();
+    }
     this.setData({
-      user,
+      user: user || null,
       isLoggedIn: !!user,
     });
   },
@@ -79,30 +82,33 @@ Page({
   loginOrRegister() {
     wx.getUserProfile({
       desc: '用于获取微信昵称',
-      success: (res) => {
+      success: async (res) => {
         const wxUser = res.userInfo || {};
-        const oldUser = wx.getStorageSync(getUserKey());
-        const user = oldUser
-          ? {
-              ...oldUser,
-              nickName: wxUser.nickName || oldUser.nickName || '微信用户',
-              avatarUrl: oldUser.avatarUrl || wxUser.avatarUrl || '',
-              updatedAt: Date.now(),
-            }
-          : buildUserFromWx(wxUser);
-
-        wx.setStorageSync(getUserKey(), user);
+        const oldUser = getUserLocal();
+        const syncRes = await upsertUserProfileToCloud({
+          nickName: wxUser.nickName || (oldUser && oldUser.nickName) || '微信用户',
+        });
+        if (!syncRes.ok || !syncRes.user) {
+          wx.showToast({ title: syncRes.message || '登录失败，请稍后重试', icon: 'none' });
+          return;
+        }
+        const user = syncRes.user;
         this.setData({
           user,
           isLoggedIn: true,
         });
         wx.showToast({ title: oldUser ? '登录成功' : '注册成功', icon: 'none' });
 
-        const redirectUrl = wx.getStorageSync('iiqe_login_redirect');
+        const redirectUrl = normalizeRedirectUrl(wx.getStorageSync('iiqe_login_redirect'));
         if (redirectUrl) {
           wx.removeStorageSync('iiqe_login_redirect');
           setTimeout(() => {
-            wx.redirectTo({ url: redirectUrl });
+            wx.redirectTo({
+              url: redirectUrl,
+              fail: () => {
+                wx.reLaunch({ url: '/pages/exam/home/home' });
+              },
+            });
           }, 250);
         }
       },
@@ -112,19 +118,40 @@ Page({
     });
   },
 
-  onChooseAvatar(e) {
+  async onChooseAvatar(e) {
     if (!this.data.isLoggedIn) return;
-    const avatarUrl = e && e.detail && e.detail.avatarUrl;
-    if (!avatarUrl) {
+    const rawAvatarUrl = e && e.detail && e.detail.avatarUrl;
+    if (!rawAvatarUrl) {
       wx.showToast({ title: '未选择头像', icon: 'none' });
       return;
     }
-    const user = {
-      ...(this.data.user || {}),
+    let avatarUrl = rawAvatarUrl;
+    if (!/^https?:\/\//.test(rawAvatarUrl) && !/^cloud:\/\//.test(rawAvatarUrl)) {
+      if (!wx.cloud || !wx.cloud.uploadFile) {
+        wx.showToast({ title: '头像更新失败，请稍后重试', icon: 'none' });
+        return;
+      }
+      try {
+        const upload = await wx.cloud.uploadFile({
+          cloudPath: `user-avatars/${this.data.user.id}-${Date.now()}.jpg`,
+          filePath: rawAvatarUrl,
+        });
+        avatarUrl = upload.fileID;
+      } catch (err) {
+        wx.showToast({ title: '头像更新失败，请稍后重试', icon: 'none' });
+        return;
+      }
+    }
+    const oldUser = this.data.user || {};
+    const syncRes = await upsertUserProfileToCloud({
+      nickName: oldUser.nickName || '微信用户',
       avatarUrl,
-      updatedAt: Date.now(),
-    };
-    wx.setStorageSync(getUserKey(), user);
+    });
+    if (!syncRes.ok || !syncRes.user) {
+      wx.showToast({ title: syncRes.message || '头像更新失败，请稍后重试', icon: 'none' });
+      return;
+    }
+    const user = syncRes.user;
     this.setData({ user });
     wx.showToast({ title: '头像已更新', icon: 'success' });
   },
@@ -165,7 +192,7 @@ Page({
         this.setData({ activationCode: text.slice(0, 20) });
       },
       fail: () => {
-        wx.showToast({ title: '粘贴失败', icon: 'none' });
+        wx.showToast({ title: '粘贴失败，请手动输入', icon: 'none' });
       },
     });
   },
@@ -183,7 +210,7 @@ Page({
       return;
     }
     if (!wx.cloud || !wx.cloud.callFunction) {
-      wx.showToast({ title: '云能力未初始化', icon: 'none' });
+      wx.showToast({ title: '服务暂时不可用，请稍后重试', icon: 'none' });
       return;
     }
     this.setData({ redeeming: true });
@@ -201,7 +228,7 @@ Page({
         });
         wx.showToast({ title: '授权成功', icon: 'success' });
       } else {
-        wx.showToast({ title: '授权码无效或已使用', icon: 'none' });
+        wx.showToast({ title: pickMessage(res && res.result, '授权码无效或已使用'), icon: 'none' });
       }
     } catch (err) {
       wx.showToast({ title: '授权失败，请稍后重试', icon: 'none' });
@@ -246,7 +273,7 @@ Page({
       return;
     }
     if (!wx.cloud || !wx.cloud.callFunction) {
-      wx.showToast({ title: '云能力未初始化', icon: 'none' });
+      wx.showToast({ title: '服务暂时不可用，请稍后重试', icon: 'none' });
       return;
     }
     this.setData({ redeemingAgent: true });
@@ -276,7 +303,7 @@ Page({
         });
         wx.showToast({ title: result.alreadyAgent ? '已是代理人' : '代理人开通成功', icon: 'success' });
       } else {
-        wx.showToast({ title: '代理人码无效或已使用', icon: 'none' });
+        wx.showToast({ title: pickMessage(result, '代理人码无效或已使用'), icon: 'none' });
       }
     } catch (err) {
       wx.showToast({ title: '兑换失败，请稍后重试', icon: 'none' });
@@ -292,7 +319,7 @@ Page({
         this.setData({ agentCode: text.slice(0, 20) });
       },
       fail: () => {
-        wx.showToast({ title: '粘贴失败', icon: 'none' });
+        wx.showToast({ title: '粘贴失败，请手动输入', icon: 'none' });
       },
     });
   },

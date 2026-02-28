@@ -10,6 +10,11 @@ const {
   refreshActivationQrByUser,
 } = require('../../../utils/entitlement');
 
+function pickMessage(result, fallback) {
+  const msg = result && typeof result.message === 'string' ? result.message.trim() : '';
+  return msg || fallback;
+}
+
 Page({
   data: {
     typeTabs: ['卷三', '卷一'],
@@ -23,12 +28,12 @@ Page({
     activationQrSrc: '/assets/wechat_qr.jpg',
   },
 
-  onLoad() {
-    requireLogin('/pages/exam/home/home');
+  async onLoad() {
+    await requireLogin('/pages/exam/home/home');
   },
 
-  onShow() {
-    if (!requireLogin('/pages/exam/home/home')) return;
+  async onShow() {
+    if (!await requireLogin('/pages/exam/home/home')) return;
     this.loadEntitlement();
     this.loadPapers();
   },
@@ -135,7 +140,7 @@ Page({
         this.setData({ activationCode: text.slice(0, 20) });
       },
       fail: () => {
-        wx.showToast({ title: '粘贴失败', icon: 'none' });
+        wx.showToast({ title: '粘贴失败，请手动输入', icon: 'none' });
       },
     });
   },
@@ -149,7 +154,7 @@ Page({
       return;
     }
     if (!wx.cloud || !wx.cloud.callFunction) {
-      wx.showToast({ title: '云能力未初始化', icon: 'none' });
+      wx.showToast({ title: '服务暂时不可用，请稍后重试', icon: 'none' });
       return;
     }
     this.setData({ redeeming: true });
@@ -167,7 +172,7 @@ Page({
         }, () => this.loadPapers());
         wx.showToast({ title: '授权成功', icon: 'success' });
       } else {
-        wx.showToast({ title: '授权码无效或已使用', icon: 'none' });
+        wx.showToast({ title: pickMessage(res && res.result, '授权码无效或已使用'), icon: 'none' });
       }
     } catch (err) {
       wx.showToast({ title: '授权失败，请稍后重试', icon: 'none' });
