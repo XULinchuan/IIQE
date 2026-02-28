@@ -60,6 +60,39 @@ describe('utils/auth', () => {
     expect(wx.reLaunch).toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
   });
 
+  test('requireLogin deduplicates concurrent cloud restore calls', async () => {
+    let resolveCloud;
+    const cloudPromise = new Promise((resolve) => {
+      resolveCloud = resolve;
+    });
+    wx.cloud.callFunction.mockReturnValue(cloudPromise);
+
+    const { requireLogin } = require('../utils/auth');
+    const p1 = requireLogin('/pages/exam/home/home');
+    const p2 = requireLogin('/pages/exam/paper/paper?paperId=p_1');
+
+    resolveCloud({
+      result: {
+        ok: true,
+        user: { id: 'openid_2', nickName: 'U2', avatarUrl: '', createdAt: 1, updatedAt: 1 },
+      },
+    });
+
+    const [ok1, ok2] = await Promise.all([p1, p2]);
+    expect(ok1).toBe(true);
+    expect(ok2).toBe(true);
+    expect(wx.cloud.callFunction).toHaveBeenCalledTimes(1);
+  });
+
+  test('requireLogin handles cloud throw and redirects once', async () => {
+    wx.cloud.callFunction.mockRejectedValueOnce(new Error('network'));
+    const { requireLogin } = require('../utils/auth');
+    const ok = await requireLogin('/pages/exam/home/home');
+    expect(ok).toBe(false);
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+    expect(wx.reLaunch).toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
+  });
+
   test('upsertUserProfileToCloud saves normalized user to local', async () => {
     wx.cloud.callFunction.mockResolvedValueOnce({
       result: {

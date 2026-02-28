@@ -1,5 +1,5 @@
 const { getPapersByType } = require('../../../utils/exam-data');
-const { requireLogin } = require('../../../utils/auth');
+const { getUserLocal } = require('../../../utils/auth');
 const {
   hasPremiumAccessLocal,
   refreshPremiumAccess,
@@ -28,14 +28,12 @@ Page({
     activationQrLoading: false,
   },
 
-  async onLoad() {
-    await requireLogin('/pages/exam/home/home');
+  onLoad() {
+    this.loadPapers();
   },
 
-  async onShow() {
-    if (!await requireLogin('/pages/exam/home/home')) return;
+  onShow() {
     this.loadEntitlement();
-    this.loadPapers();
   },
 
   switchType(e) {
@@ -49,7 +47,33 @@ Page({
     if (!id) return;
     const paper = (this.data.papers || []).find((p) => p.id === id);
     if (paper && paper.premium) {
-      const hasAccess = this.data.hasPremiumAccess || this.data.isAgent;
+      if (!getUserLocal()) {
+        wx.showToast({ title: '请先登录', icon: 'none' });
+        wx.navigateTo({
+          url: '/pages/exam/me/me',
+          fail: () => {
+            wx.redirectTo({ url: '/pages/exam/me/me' });
+          },
+        });
+        return;
+      }
+      let hasAccess = this.data.hasPremiumAccess || this.data.isAgent;
+      if (!hasAccess) {
+        try {
+          const [premium, profile] = await Promise.all([
+            refreshPremiumAccess(),
+            refreshMyAgentProfile(),
+          ]);
+          const isAgent = !!(profile && profile.isAgent && profile.status !== 'disabled');
+          if (premium !== this.data.hasPremiumAccess || isAgent !== this.data.isAgent) {
+            this.setData({ hasPremiumAccess: !!premium, isAgent });
+          }
+          hasAccess = !!premium || isAgent;
+          if (hasAccess) {
+            this.loadPapers();
+          }
+        } catch (err) {}
+      }
       if (!hasAccess) {
         this.setData({
           showActivationDialog: true,

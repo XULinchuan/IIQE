@@ -53,6 +53,28 @@ describe('utils/entitlement', () => {
     expect(hasPremiumAccessLocal()).toBe(true);
   });
 
+  test('refreshPremiumAccess keeps local state when ok field missing', async () => {
+    const { setPremiumAccess, refreshPremiumAccess, hasPremiumAccessLocal } = require('../utils/entitlement');
+    setPremiumAccess(true);
+    wx.cloud.callFunction.mockResolvedValueOnce({ result: { hasAccess: false } });
+
+    const enabled = await refreshPremiumAccess();
+
+    expect(enabled).toBe(true);
+    expect(hasPremiumAccessLocal()).toBe(true);
+  });
+
+  test('refreshPremiumAccess clears local state only when ok=true and hasAccess=false', async () => {
+    const { setPremiumAccess, refreshPremiumAccess, hasPremiumAccessLocal } = require('../utils/entitlement');
+    setPremiumAccess(true);
+    wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: true, hasAccess: false } });
+
+    const enabled = await refreshPremiumAccess();
+
+    expect(enabled).toBe(false);
+    expect(hasPremiumAccessLocal()).toBe(false);
+  });
+
   test('refreshMyAgentProfile writes profile to local cache', async () => {
     wx.cloud.callFunction.mockResolvedValueOnce({
       result: {

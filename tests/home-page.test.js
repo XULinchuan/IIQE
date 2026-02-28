@@ -1,8 +1,8 @@
 const { loadPage, createPageInstance } = require('./pageTestUtils');
 
-function mockDeps({ requireOk = true, localPremium = false, localAgent = false } = {}) {
+function mockDeps({ localPremium = false, localAgent = false, loggedIn = true } = {}) {
   jest.doMock('../utils/auth', () => ({
-    requireLogin: jest.fn().mockResolvedValue(requireOk),
+    getUserLocal: jest.fn(() => (loggedIn ? { id: 'u1' } : null)),
   }));
   const refreshPremiumAccess = jest.fn(async () => localPremium);
   const refreshMyAgentProfile = jest.fn(async () => ({ isAgent: localAgent, status: localAgent ? 'active' : '' }));
@@ -24,17 +24,18 @@ function mockDeps({ requireOk = true, localPremium = false, localAgent = false }
 }
 
 describe('pages/exam/home/home.js', () => {
-  test('onShow exits when login required fails', async () => {
-    mockDeps({ requireOk: false });
+  test('onLoad loads papers and onShow loads entitlement', async () => {
+    mockDeps();
     const def = loadPage('../pages/exam/home/home.js');
     const page = createPageInstance(def);
     page.loadEntitlement = jest.fn();
     page.loadPapers = jest.fn();
 
+    page.onLoad();
     await page.onShow();
 
-    expect(page.loadEntitlement).not.toHaveBeenCalled();
-    expect(page.loadPapers).not.toHaveBeenCalled();
+    expect(page.loadPapers).toHaveBeenCalledTimes(1);
+    expect(page.loadEntitlement).toHaveBeenCalledTimes(1);
   });
 
   test('switchType ignores invalid type and switches valid type', () => {
@@ -58,6 +59,70 @@ describe('pages/exam/home/home.js', () => {
     const page = createPageInstance(def);
     page.loadActivationQr = jest.fn();
     page.setData({ papers: [{ id: 'p2', premium: true }], hasPremiumAccess: false, isAgent: false });
+
+    await page.goPaper({ currentTarget: { dataset: { id: 'p2' } } });
+
+    expect(page.data.showActivationDialog).toBe(true);
+    expect(page.loadActivationQr).toHaveBeenCalled();
+  });
+
+  test('goPaper requires login before opening premium activation dialog', async () => {
+    mockDeps({ loggedIn: false });
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.loadActivationQr = jest.fn();
+    page.setData({ papers: [{ id: 'p2', premium: true }], hasPremiumAccess: false, isAgent: false });
+
+    await page.goPaper({ currentTarget: { dataset: { id: 'p2' } } });
+
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+    expect(wx.navigateTo).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/pages/exam/me/me' }),
+    );
+    expect(page.data.showActivationDialog).toBe(false);
+    expect(page.loadActivationQr).not.toHaveBeenCalled();
+  });
+
+  test('goPaper login redirect falls back when navigateTo fails', async () => {
+    mockDeps({ loggedIn: false });
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.setData({ papers: [{ id: 'p2', premium: true }], hasPremiumAccess: false, isAgent: false });
+    wx.navigateTo.mockImplementation(({ fail }) => fail && fail());
+
+    await page.goPaper({ currentTarget: { dataset: { id: 'p2' } } });
+
+    expect(wx.redirectTo).toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
+  });
+
+  test('goPaper rechecks entitlement and enters paper when cloud says authorized', async () => {
+    mockDeps({ localPremium: false, localAgent: false });
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.setData({ papers: [{ id: 'p2', premium: true }], hasPremiumAccess: false, isAgent: false });
+
+    const entitlement = require('../utils/entitlement');
+    entitlement.refreshPremiumAccess.mockResolvedValueOnce(true);
+    entitlement.refreshMyAgentProfile.mockResolvedValueOnce({ isAgent: false, status: '' });
+
+    await page.goPaper({ currentTarget: { dataset: { id: 'p2' } } });
+
+    expect(page.data.showActivationDialog).toBe(false);
+    expect(wx.navigateTo).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/pages/exam/paper/paper?paperId=p2' }),
+    );
+  });
+
+  test('goPaper opens activation dialog when entitlement refresh throws', async () => {
+    mockDeps({ localPremium: false, localAgent: false, loggedIn: true });
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.loadActivationQr = jest.fn();
+    page.setData({ papers: [{ id: 'p2', premium: true }], hasPremiumAccess: false, isAgent: false });
+
+    const entitlement = require('../utils/entitlement');
+    entitlement.refreshPremiumAccess.mockRejectedValueOnce(new Error('down'));
+    entitlement.refreshMyAgentProfile.mockRejectedValueOnce(new Error('down'));
 
     await page.goPaper({ currentTarget: { dataset: { id: 'p2' } } });
 

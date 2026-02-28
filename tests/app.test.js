@@ -19,7 +19,7 @@ describe('app.js referral binding', () => {
   test('onShow binds referral from query.ref', () => {
     wx.cloud.callFunction = jest.fn().mockResolvedValue({});
     const app = loadAppDef();
-    app.onShow({ query: { ref: 'agt_abc' } });
+    app.onShow({ path: 'pages/exam/home/home', query: { ref: 'agt_abc' } });
 
     expect(wx.cloud.callFunction).toHaveBeenCalledWith({
       name: 'bindReferralOnEntry',
@@ -33,7 +33,7 @@ describe('app.js referral binding', () => {
   test('onShow binds referral from query.scene', () => {
     wx.cloud.callFunction = jest.fn().mockResolvedValue({});
     const app = loadAppDef();
-    app.onShow({ query: { scene: 'ref%3Dagt_scene%26x%3D1' } });
+    app.onShow({ path: 'pages/exam/home/home', query: { scene: 'ref%3Dagt_scene%26x%3D1' } });
 
     expect(wx.cloud.callFunction).toHaveBeenCalledWith({
       name: 'bindReferralOnEntry',
@@ -49,5 +49,23 @@ describe('app.js referral binding', () => {
     const app = loadAppDef();
     app.onShow({ query: { foo: 'bar' } });
     expect(wx.cloud.callFunction).not.toHaveBeenCalled();
+  });
+
+  test('onShow reLaunches to home when referral launch path is not home', () => {
+    wx.cloud.callFunction = jest.fn().mockResolvedValue({});
+    const app = loadAppDef();
+    app.onShow({ path: 'pages/exam/me/me', query: { ref: 'agt_abc' } });
+
+    expect(wx.reLaunch).toHaveBeenCalledWith({
+      url: '/pages/exam/home/home?ref=agt_abc',
+    });
+  });
+
+  test('onShow does not reLaunch when referral path is already home', () => {
+    wx.cloud.callFunction = jest.fn().mockResolvedValue({});
+    const app = loadAppDef();
+    app.onShow({ path: 'pages/exam/home/home', query: { ref: 'agt_abc' } });
+
+    expect(wx.reLaunch).not.toHaveBeenCalled();
   });
 });
