@@ -67,11 +67,23 @@ describe('pages/exam/me/me.js', () => {
     mockDeps({ premium: true });
     const def = loadPage('../pages/exam/me/me.js');
     const page = createPageInstance(def);
-    page.setData({ hasPremiumAccess: true });
+    page.setData({ isLoggedIn: true, hasPremiumAccess: true });
 
     page.openActivationDialog();
 
     expect(wx.showToast).toHaveBeenCalledWith({ title: '已授权，无需重复输入', icon: 'none' });
+  });
+
+  test('openActivationDialog requires login before opening', async () => {
+    mockDeps({ premium: false });
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ isLoggedIn: false, hasPremiumAccess: false });
+
+    await page.openActivationDialog();
+
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+    expect(page.data.showActivationDialog).toBe(false);
   });
 
   test('redeemActivationCode guards on login/code/cloud', async () => {
@@ -120,6 +132,11 @@ describe('pages/exam/me/me.js', () => {
     const def = loadPage('../pages/exam/me/me.js');
     const page = createPageInstance(def);
 
+    page.setData({ isLoggedIn: false, agentCode: 'AGENT001' });
+    await page.redeemAgentCode();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+
+    page.setData({ isLoggedIn: true });
     page.setData({ agentCode: '' });
     await page.redeemAgentCode();
     expect(wx.showToast).toHaveBeenCalledWith({ title: '请输入代理人码', icon: 'none' });
@@ -170,6 +187,7 @@ describe('pages/exam/me/me.js', () => {
     const def = loadPage('../pages/exam/me/me.js');
     const page = createPageInstance(def);
 
+    page.setData({ isLoggedIn: true });
     page.openAgentCenter();
     expect(wx.showToast).toHaveBeenCalledWith({ title: '请先开通代理人', icon: 'none' });
 
@@ -185,6 +203,35 @@ describe('pages/exam/me/me.js', () => {
     global.getCurrentPages = () => [{}];
     page.back();
     expect(wx.redirectTo).toHaveBeenCalledWith({ url: '/pages/exam/home/home' });
+  });
+
+  test('openAgentCenter requires login first', () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ isLoggedIn: false, isAgent: true });
+
+    page.openAgentCenter();
+
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+    expect(wx.navigateTo).not.toHaveBeenCalled();
+  });
+
+  test('openRecords requires login before navigation', () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+
+    page.setData({ isLoggedIn: false });
+    page.openRecords();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+    expect(wx.navigateTo).not.toHaveBeenCalled();
+
+    page.setData({ isLoggedIn: true });
+    page.openRecords();
+    expect(wx.navigateTo).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/pages/exam/records/records' }),
+    );
   });
 
   test('saveActivationQr saves local image successfully', async () => {
@@ -297,7 +344,12 @@ describe('pages/exam/me/me.js', () => {
     mockDeps();
     const def = loadPage('../pages/exam/me/me.js');
     const page = createPageInstance(def);
-    page.setData({ hasPremiumAccess: false, activationQrSrc: '/assets/wechat_qr.jpg', activationQrLoading: false });
+    page.setData({
+      isLoggedIn: true,
+      hasPremiumAccess: false,
+      activationQrSrc: '/assets/wechat_qr.jpg',
+      activationQrLoading: false,
+    });
     page.loadActivationQr = jest.fn();
 
     page.openActivationDialog();

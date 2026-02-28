@@ -187,6 +187,10 @@ Page({
   },
 
   async openActivationDialog() {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
     if (this.data.hasPremiumAccess) {
       wx.showToast({ title: '已授权，无需重复输入', icon: 'none' });
       return;
@@ -411,6 +415,10 @@ Page({
   },
 
   async redeemAgentCode() {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
     const code = (this.data.agentCode || '').trim().toUpperCase();
     if (!code) {
       wx.showToast({ title: '请输入代理人码', icon: 'none' });
@@ -469,6 +477,10 @@ Page({
   },
 
   openAgentCenter() {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
     if (!this.data.isAgent) {
       wx.showToast({ title: '请先开通代理人', icon: 'none' });
       return;
@@ -482,6 +494,10 @@ Page({
   },
 
   openRecords() {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
     wx.navigateTo({
       url: '/pages/exam/records/records',
       fail: () => {
