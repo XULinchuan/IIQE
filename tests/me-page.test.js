@@ -263,4 +263,24 @@ describe('pages/exam/me/me.js', () => {
       urls: ['/tmp/qr-preview.jpg'],
     });
   });
+
+  test('previewActivationQr prefers getTempFileURL for cloud file', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: 'cloud://x/qr.jpg' });
+
+    wx.cloud.getTempFileURL = jest.fn(async () => ({
+      fileList: [{ tempFileURL: 'https://tmp.example.com/qr.jpg' }],
+    }));
+    wx.previewImage = jest.fn();
+
+    await page.previewActivationQr();
+
+    expect(wx.cloud.getTempFileURL).toHaveBeenCalledWith({ fileList: ['cloud://x/qr.jpg'] });
+    expect(wx.previewImage).toHaveBeenCalledWith({
+      current: 'https://tmp.example.com/qr.jpg',
+      urls: ['https://tmp.example.com/qr.jpg'],
+    });
+  });
 });

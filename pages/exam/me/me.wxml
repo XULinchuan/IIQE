@@ -50,7 +50,9 @@
       <view class="dialog-title">此题库需要授权访问</view>
       <view class="dialog-sub">请添加微信获取授权码（点击二维码后长按识别）</view>
       <view class="qr-wrap">
+        <view wx:if="{{activationQrLoading}}" class="qr-loading">二维码加载中...</view>
         <image
+          wx:else
           class="qr-image"
           mode="aspectFit"
           src="{{activationQrSrc}}"

@@ -6,7 +6,6 @@ const {
   setPremiumAccess,
   isAgentLocal,
   refreshMyAgentProfile,
-  getActivationQrLocal,
   refreshActivationQrByUser,
 } = require('../../../utils/entitlement');
 
@@ -25,7 +24,8 @@ Page({
     showActivationDialog: false,
     activationCode: '',
     redeeming: false,
-    activationQrSrc: '/assets/wechat_qr.jpg',
+    activationQrSrc: '',
+    activationQrLoading: false,
   },
 
   async onLoad() {
@@ -54,6 +54,8 @@ Page({
         this.setData({
           showActivationDialog: true,
           activationCode: '',
+          activationQrLoading: true,
+          activationQrSrc: '',
         });
         this.loadActivationQr();
         return;
@@ -104,25 +106,32 @@ Page({
     });
   },
 
-  loadActivationQr() {
-    this.setData({ activationQrSrc: getActivationQrLocal() });
-    refreshActivationQrByUser().then((src) => {
+  async loadActivationQr() {
+    this.setData({ activationQrLoading: true, activationQrSrc: '' });
+    try {
+      const src = await refreshActivationQrByUser();
       this.setData({ activationQrSrc: src || '/assets/wechat_qr.jpg' });
-    });
+    } finally {
+      this.setData({ activationQrLoading: false });
+    }
   },
 
-  openActivationDialog() {
+  async openActivationDialog() {
     this.setData({
       showActivationDialog: true,
       activationCode: '',
+      activationQrLoading: true,
+      activationQrSrc: '',
     });
-    this.loadActivationQr();
+    await this.loadActivationQr();
   },
 
   closeActivationDialog() {
     this.setData({
       showActivationDialog: false,
       activationCode: '',
+      activationQrLoading: false,
+      activationQrSrc: '',
     });
   },
 
@@ -151,6 +160,23 @@ Page({
     if (target.indexOf('wxfile://') === 0) return target;
 
     if (target.indexOf('cloud://') === 0) {
+      if (wx.cloud && wx.cloud.getTempFileURL) {
+        const tempUrlRes = await wx.cloud.getTempFileURL({ fileList: [target] }).catch(() => null);
+        const tempItem = tempUrlRes && tempUrlRes.fileList && tempUrlRes.fileList[0];
+        const tempUrl = tempItem && (tempItem.tempFileURL || tempItem.tempFileUrl);
+        if (tempUrl) {
+          const cloudTempDownload = await new Promise((resolve, reject) => {
+            wx.downloadFile({
+              url: tempUrl,
+              success: resolve,
+              fail: reject,
+            });
+          }).catch(() => null);
+          if (cloudTempDownload && cloudTempDownload.statusCode === 200 && cloudTempDownload.tempFilePath) {
+            return cloudTempDownload.tempFilePath;
+          }
+        }
+      }
       if (!wx.cloud || !wx.cloud.downloadFile) return '';
       const download = await wx.cloud.downloadFile({ fileID: target });
       return (download && download.tempFilePath) || '';
@@ -183,6 +209,18 @@ Page({
   async previewActivationQr() {
     const src = this.data.activationQrSrc || '/assets/wechat_qr.jpg';
     try {
+      if (String(src).indexOf('cloud://') === 0 && wx.cloud && wx.cloud.getTempFileURL) {
+        const tempUrlRes = await wx.cloud.getTempFileURL({ fileList: [src] }).catch(() => null);
+        const tempItem = tempUrlRes && tempUrlRes.fileList && tempUrlRes.fileList[0];
+        const tempUrl = tempItem && (tempItem.tempFileURL || tempItem.tempFileUrl);
+        if (tempUrl) {
+          wx.previewImage({
+            current: tempUrl,
+            urls: [tempUrl],
+          });
+          return;
+        }
+      }
       const filePath = await this.resolveActivationQrTempFile(src);
       const current = filePath || src;
       wx.previewImage({

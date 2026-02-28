@@ -129,4 +129,24 @@ describe('pages/exam/home/home.js', () => {
     );
     expect(wx.openSetting).toHaveBeenCalled();
   });
+
+  test('previewActivationQr prefers getTempFileURL for cloud file', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: 'cloud://x/qr.jpg' });
+
+    wx.cloud.getTempFileURL = jest.fn(async () => ({
+      fileList: [{ tempFileURL: 'https://tmp.example.com/home-qr.jpg' }],
+    }));
+    wx.previewImage = jest.fn();
+
+    await page.previewActivationQr();
+
+    expect(wx.cloud.getTempFileURL).toHaveBeenCalledWith({ fileList: ['cloud://x/qr.jpg'] });
+    expect(wx.previewImage).toHaveBeenCalledWith({
+      current: 'https://tmp.example.com/home-qr.jpg',
+      urls: ['https://tmp.example.com/home-qr.jpg'],
+    });
+  });
 });
