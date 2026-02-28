@@ -18,15 +18,17 @@ App({
         }
     },
     onShow(options = {}) {
-        const queryRef = options.query && options.query.ref ? String(options.query.ref).trim() : '';
-        const sceneRef = options.scene ? extractRefFromScene(options.scene) : '';
+        const query = options.query || {};
+        const queryRef = query.ref ? String(query.ref).trim() : '';
+        const sceneRaw = query.scene ? String(query.scene) : '';
+        const sceneRef = sceneRaw ? extractRefFromScene(sceneRaw) : '';
         const refAgentId = queryRef || sceneRef;
         if (refAgentId && wx.cloud && wx.cloud.callFunction) {
             wx.cloud.callFunction({
                 name: 'bindReferralOnEntry',
                 data: {
                     refAgentId,
-                    scene: options.scene || '',
+                    scene: sceneRaw,
                 },
             }).catch(() => {});
         }
