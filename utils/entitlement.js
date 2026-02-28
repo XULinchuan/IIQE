@@ -88,10 +88,11 @@ async function refreshActivationQrByUser() {
     const res = await wx.cloud.callFunction({
       name: 'getActivationQrByUser',
     });
-    const qrFileID = res && res.result && res.result.qrFileID;
-    if (qrFileID) {
-      setActivationQrLocal(qrFileID);
-      return qrFileID;
+    const result = res && res.result;
+    const qrSrc = (result && (result.qrTempFileURL || result.qrFileID)) || '';
+    if (qrSrc) {
+      setActivationQrLocal(qrSrc);
+      return qrSrc;
     }
     return getActivationQrLocal();
   } catch (err) {

@@ -68,4 +68,21 @@ describe('utils/entitlement', () => {
 
     expect(qr).toBe('/assets/wechat_qr.jpg');
   });
+
+  test('refreshActivationQrByUser prefers qrTempFileURL when provided', async () => {
+    const { refreshActivationQrByUser } = require('../utils/entitlement');
+    wx.cloud.callFunction.mockResolvedValueOnce({
+      result: {
+        qrFileID: 'cloud://agent/qr.jpg',
+        qrTempFileURL: 'https://tmp.example.com/agent-qr.jpg',
+      },
+    });
+
+    const qr = await refreshActivationQrByUser();
+
+    expect(qr).toBe('https://tmp.example.com/agent-qr.jpg');
+    expect(wx.getStorageSync('iiqe_activation_qr')).toEqual(
+      expect.objectContaining({ qrFileID: 'https://tmp.example.com/agent-qr.jpg' }),
+    );
+  });
 });
