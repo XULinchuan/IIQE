@@ -149,4 +149,23 @@ describe('pages/exam/home/home.js', () => {
       urls: ['https://tmp.example.com/home-qr.jpg'],
     });
   });
+
+  test('open/close activation dialog resets qr state to avoid flashing old/default image', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: '/assets/wechat_qr.jpg', activationQrLoading: false });
+    page.loadActivationQr = jest.fn();
+
+    page.openActivationDialog();
+    expect(page.data.showActivationDialog).toBe(true);
+    expect(page.data.activationQrLoading).toBe(true);
+    expect(page.data.activationQrSrc).toBe('');
+
+    page.setData({ activationQrSrc: 'cloud://agent/qr.jpg', activationQrLoading: false });
+    page.closeActivationDialog();
+    expect(page.data.showActivationDialog).toBe(false);
+    expect(page.data.activationQrLoading).toBe(false);
+    expect(page.data.activationQrSrc).toBe('');
+  });
 });
