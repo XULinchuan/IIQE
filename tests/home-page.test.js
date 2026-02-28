@@ -90,4 +90,43 @@ describe('pages/exam/home/home.js', () => {
     await page.redeemActivationCode();
     expect(wx.showToast).toHaveBeenCalledWith({ title: '授权码不存在', icon: 'none' });
   });
+
+  test('previewActivationQr opens image preview with resolved path', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: '/assets/wechat_qr.jpg' });
+
+    wx.getImageInfo = jest.fn(({ success }) => success({ path: '/tmp/home-qr.jpg' }));
+    wx.previewImage = jest.fn();
+
+    await page.previewActivationQr();
+
+    expect(wx.previewImage).toHaveBeenCalledWith({
+      current: '/tmp/home-qr.jpg',
+      urls: ['/tmp/home-qr.jpg'],
+    });
+  });
+
+  test('saveActivationQr shows setting modal on permission denied', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: '/assets/wechat_qr.jpg' });
+
+    wx.getImageInfo = jest.fn(({ success }) => success({ path: '/tmp/home-qr.jpg' }));
+    wx.saveImageToPhotosAlbum = jest.fn(({ fail }) => fail({ errMsg: 'saveImageToPhotosAlbum:fail auth denied' }));
+    wx.showModal = jest.fn(({ success }) => success({ confirm: true }));
+    wx.openSetting = jest.fn();
+
+    await page.saveActivationQr();
+
+    expect(wx.showModal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '需要相册权限',
+        content: '请在设置中允许保存到相册后重试',
+      }),
+    );
+    expect(wx.openSetting).toHaveBeenCalled();
+  });
 });

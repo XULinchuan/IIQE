@@ -30,10 +30,17 @@
     <view class="dialog-card" catchtap="noop">
       <view class="dialog-close" bindtap="closeActivationDialog">×</view>
       <view class="dialog-title">此题库需要授权访问</view>
-      <view class="dialog-sub">请添加微信获取授权码（长按识别二维码）</view>
+      <view class="dialog-sub">请添加微信获取授权码（点击二维码后长按识别）</view>
       <view class="qr-wrap">
-        <image class="qr-image" mode="aspectFit" src="{{activationQrSrc}}"></image>
+        <image
+          class="qr-image"
+          mode="aspectFit"
+          src="{{activationQrSrc}}"
+          show-menu-by-longpress="{{true}}"
+          bindtap="previewActivationQr"
+        ></image>
       </view>
+      <view class="save-qr-btn" bindtap="saveActivationQr">保存二维码</view>
       <view class="code-row">
         <view class="code-label">授权码</view>
         <input

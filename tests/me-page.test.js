@@ -177,4 +177,90 @@ describe('pages/exam/me/me.js', () => {
     page.back();
     expect(wx.redirectTo).toHaveBeenCalledWith({ url: '/pages/exam/home/home' });
   });
+
+  test('saveActivationQr saves local image successfully', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: '/assets/wechat_qr.jpg' });
+
+    wx.getImageInfo = jest.fn(({ success }) => success({ path: '/tmp/qr.jpg' }));
+    wx.saveImageToPhotosAlbum = jest.fn(({ success }) => success({}));
+
+    await page.saveActivationQr();
+
+    expect(wx.saveImageToPhotosAlbum).toHaveBeenCalledWith(
+      expect.objectContaining({ filePath: '/tmp/qr.jpg' }),
+    );
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '二维码已保存到相册', icon: 'success' });
+  });
+
+  test('saveActivationQr opens setting when album permission denied', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: '/assets/wechat_qr.jpg' });
+
+    wx.getImageInfo = jest.fn(({ success }) => success({ path: '/tmp/qr.jpg' }));
+    wx.saveImageToPhotosAlbum = jest.fn(({ fail }) => fail({ errMsg: 'saveImageToPhotosAlbum:fail auth denied' }));
+    wx.showModal = jest.fn(({ success }) => success({ confirm: true }));
+    wx.openSetting = jest.fn();
+
+    await page.saveActivationQr();
+
+    expect(wx.showModal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '需要相册权限',
+        content: '请在设置中允许保存到相册后重试',
+      }),
+    );
+    expect(wx.openSetting).toHaveBeenCalled();
+  });
+
+  test('saveActivationQr handles http download failure gracefully', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: 'https://example.com/qr.jpg' });
+
+    wx.downloadFile = jest.fn(({ fail }) => fail({ errMsg: 'network fail' }));
+
+    await page.saveActivationQr();
+
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '保存失败，请稍后重试', icon: 'none' });
+  });
+
+  test('saveActivationQr supports cloud fileID', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: 'cloud://x/qr.jpg' });
+
+    wx.cloud.downloadFile = jest.fn(async () => ({ tempFilePath: '/tmp/cloud-qr.jpg' }));
+    wx.saveImageToPhotosAlbum = jest.fn(({ success }) => success({}));
+
+    await page.saveActivationQr();
+
+    expect(wx.cloud.downloadFile).toHaveBeenCalledWith({ fileID: 'cloud://x/qr.jpg' });
+    expect(wx.saveImageToPhotosAlbum).toHaveBeenCalledWith(
+      expect.objectContaining({ filePath: '/tmp/cloud-qr.jpg' }),
+    );
+  });
+
+  test('previewActivationQr opens preview with resolved path', async () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ activationQrSrc: '/assets/wechat_qr.jpg' });
+
+    wx.getImageInfo = jest.fn(({ success }) => success({ path: '/tmp/qr-preview.jpg' }));
+    wx.previewImage = jest.fn();
+
+    await page.previewActivationQr();
+
+    expect(wx.previewImage).toHaveBeenCalledWith({
+      current: '/tmp/qr-preview.jpg',
+      urls: ['/tmp/qr-preview.jpg'],
+    });
+  });
 });
