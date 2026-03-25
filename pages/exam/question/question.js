@@ -3,6 +3,10 @@ const {
   getPaperById,
   chapterTitleMap,
 } = require('../../../utils/exam-data');
+const {
+  getVolumeCollectionQuestions,
+  getVolumePapers,
+} = require('../../../utils/volume-collection');
 const { requireLogin } = require('../../../utils/auth');
 const {
   hasPremiumAccessLocal,
@@ -85,18 +89,45 @@ function getWrongModeSource(paperId, progress) {
 }
 
 function shouldResetAnswerState(mode) {
-  return mode === 'wrong' || mode === 'favorite';
+  return mode === 'wrong' || mode === 'favorite' || mode === 'volume_wrong' || mode === 'volume_favorite';
+}
+
+function isVolumeMode(mode) {
+  return mode === 'volume_wrong' || mode === 'volume_favorite';
+}
+
+function isWrongCollectionMode(mode) {
+  return mode === 'wrong' || mode === 'volume_wrong';
+}
+
+function getVolumeCollectionTypeByMode(mode) {
+  return mode === 'volume_favorite' ? 'favorite' : 'wrong';
 }
 
 function resolveScopeKey(data) {
   if (data && data.scopeKey) return data.scopeKey;
-  return buildScopeKey(data && data.paperId, data && data.mode, data && data.chapterNo);
+  return buildScopeKey({
+    paperId: data && data.paperId,
+    volumeId: data && data.volumeId,
+    mode: data && data.mode,
+    chapterNo: data && data.chapterNo,
+  });
 }
 
-function buildScopeKey(paperId, mode, chapterNo) {
+function buildScopeKey({
+  paperId,
+  volumeId,
+  mode,
+  chapterNo,
+}) {
   const safePaperId = String(paperId || '');
+  const safeVolumeId = String(volumeId || '');
   const safeMode = String(mode || 'chapter');
   const safeChapterNo = String(chapterNo || '');
+  if (safeMode === 'volume_wrong' || safeMode === 'volume_favorite') {
+    const type = safeMode === 'volume_favorite' ? 'favorite' : 'wrong';
+    return `volume:${safeVolumeId}:${type}:${safeChapterNo || 'all'}`;
+  }
   if (safeMode === 'chapter') return `paper:${safePaperId}:chapter:${safeChapterNo}`;
   return `paper:${safePaperId}:${safeMode}`;
 }
@@ -177,9 +208,29 @@ function getRandomModeSource(source, scopeKey) {
   return rebuilt;
 }
 
+function matchesChapterForMode(chapter, chapterNo) {
+  const target = String(chapterNo || '');
+  if (!target || target === 'all') return true;
+  const raw = String(chapter || '');
+  return (
+    raw === target
+    || raw.startsWith(`${target}.`)
+    || raw.startsWith(`${target}(`)
+  );
+}
+
+function getSourcePaperIdForQuestion(question, fallbackPaperId) {
+  return (question && question.sourcePaperId) || fallbackPaperId || '';
+}
+
+function getQuestionIdForProgress(question) {
+  return question && question.id;
+}
+
 Page({
   data: {
     paperId: '',
+    volumeId: '',
     mode: 'chapter',
     chapterNo: '',
     scopeKey: '',
@@ -200,46 +251,70 @@ Page({
 
   async onLoad(options) {
     const paperId = options.paperId || '';
+    const volumeId = decodeURIComponent(options.volumeId || '').trim();
     const mode = options.mode || 'chapter';
-    const chapterNo = options.chapterNo || '';
-    const paper = getPaperById(paperId);
-    if (!paper) {
-      wx.showToast({ title: '试卷不存在', icon: 'none' });
-      this.backToPaper();
-      return;
-    }
-    let navTitle = (paper && paper.title) || '练习';
-    if (mode === 'wrong') navTitle = '错题集';
-    if (mode === 'favorite') navTitle = '收藏题';
-    const scopeKey = buildScopeKey(paperId, mode, chapterNo);
-    wx.setNavigationBarTitle({ title: navTitle });
-    if (paper.premium && !await requireLogin('/pages/exam/question/question')) return;
-    if (!hasPaperAccess(paper)) {
-      wx.showToast({ title: '该试卷需先授权', icon: 'none' });
-      this.backToPaper();
-      return;
-    }
+    const chapterNo = options.chapterNo || (isVolumeMode(mode) ? 'all' : '');
+    let navTitle = '练习';
+    let source = [];
+    let progress = null;
+    const scopeKey = buildScopeKey({
+      paperId,
+      volumeId,
+      mode,
+      chapterNo,
+    });
 
-    let source = getQuestionsByPaperId(paperId);
-    const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
+    if (isVolumeMode(mode)) {
+      if (!volumeId) {
+        wx.showToast({ title: '题集不存在', icon: 'none' });
+        this.safeRedirectToHome();
+        return;
+      }
+      const collectionType = getVolumeCollectionTypeByMode(mode);
+      navTitle = `${volumeId}${collectionType === 'favorite' ? '收藏题' : '错题集'}`;
+      wx.setNavigationBarTitle({ title: navTitle });
+      source = getVolumeCollectionQuestions(volumeId, collectionType, chapterNo);
+      source = source.filter((q) => matchesChapterForMode(q.chapter, chapterNo)).map(withChapterName);
+    } else {
+      const paper = getPaperById(paperId);
+      if (!paper) {
+        wx.showToast({ title: '试卷不存在', icon: 'none' });
+        this.backToPaper();
+        return;
+      }
+      navTitle = (paper && paper.title) || '练习';
+      if (mode === 'wrong') navTitle = '错题集';
+      if (mode === 'favorite') navTitle = '收藏题';
+      wx.setNavigationBarTitle({ title: navTitle });
+      if (paper.premium && !await requireLogin('/pages/exam/question/question')) return;
+      if (!hasPaperAccess(paper)) {
+        wx.showToast({ title: '该试卷需先授权', icon: 'none' });
+        this.backToPaper();
+        return;
+      }
 
-    if (mode === 'chapter') {
-      source = source.filter((q) => String(q.chapter).startsWith(`${chapterNo}.`) || String(q.chapter) === chapterNo);
-    } else if (mode === 'random') {
-      source = getRandomModeSource(source, scopeKey);
-    } else if (mode === 'wrong') {
-      source = getWrongModeSource(paperId, progress);
-    } else if (mode === 'favorite') {
-      const favSet = new Set(progress.favorites || []);
-      source = source.filter((q) => favSet.has(q.id));
+      source = getQuestionsByPaperId(paperId);
+      progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
+
+      if (mode === 'chapter') {
+        source = source.filter((q) => matchesChapterForMode(q.chapter, chapterNo));
+      } else if (mode === 'random') {
+        source = getRandomModeSource(source, scopeKey);
+      } else if (mode === 'wrong') {
+        source = getWrongModeSource(paperId, progress);
+      } else if (mode === 'favorite') {
+        const favSet = new Set(progress.favorites || []);
+        source = source.filter((q) => favSet.has(q.id));
+      }
+
+      source = source.map(withChapterName);
     }
-
-    source = source.map(withChapterName);
 
     if (!source.length) {
       clearCursor(scopeKey);
       this.setData({
         paperId,
+        volumeId,
         mode,
         chapterNo,
         scopeKey,
@@ -257,9 +332,13 @@ Page({
     const uiState = shouldResetAnswerState(mode)
       ? { selected: -1, submitted: false, isCurrentCorrect: false }
       : getQuestionUiState(first, progress);
+    const firstSourcePaperId = getSourcePaperIdForQuestion(first, paperId);
+    const firstQuestionId = getQuestionIdForProgress(first);
+    const firstProgress = wx.getStorageSync(getProgressKey(firstSourcePaperId)) || initProgress();
 
     this.setData({
       paperId,
+      volumeId,
       mode,
       chapterNo,
       scopeKey,
@@ -269,7 +348,7 @@ Page({
       current: first,
       isFirstQuestion: startIndex === 0,
       isLastQuestion: startIndex === source.length - 1,
-      isFavorite: (progress.favorites || []).includes(first.id),
+      isFavorite: (firstProgress.favorites || []).includes(firstQuestionId),
       disableCursorPersist: false,
       ...uiState,
     });
@@ -277,7 +356,12 @@ Page({
   },
 
   async onShow() {
-    const paperId = this.data.paperId;
+    const { paperId, mode, volumeId } = this.data;
+    if (isVolumeMode(mode)) {
+      if (!volumeId) return;
+      return;
+    }
+
     if (!paperId) return;
     const paper = getPaperById(paperId);
     if (!paper || !paper.premium) return;
@@ -308,16 +392,19 @@ Page({
   toggleFavorite() {
     const { paperId, current } = this.data;
     if (!current) return;
-    const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
+    const sourcePaperId = getSourcePaperIdForQuestion(current, paperId);
+    if (!sourcePaperId) return;
+    const questionId = getQuestionIdForProgress(current);
+    const progress = wx.getStorageSync(getProgressKey(sourcePaperId)) || initProgress();
     const favorites = new Set(progress.favorites || []);
-    if (favorites.has(current.id)) {
-      favorites.delete(current.id);
+    if (favorites.has(questionId)) {
+      favorites.delete(questionId);
     } else {
-      favorites.add(current.id);
+      favorites.add(questionId);
     }
     progress.favorites = [...favorites];
-    wx.setStorageSync(getProgressKey(paperId), progress);
-    this.setData({ isFavorite: favorites.has(current.id) });
+    wx.setStorageSync(getProgressKey(sourcePaperId), progress);
+    this.setData({ isFavorite: favorites.has(questionId) });
   },
 
   answerCurrentQuestion(selected) {
@@ -330,12 +417,16 @@ Page({
     } = this.data;
     if (!current) return;
 
-    const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
+    const sourcePaperId = getSourcePaperIdForQuestion(current, paperId);
+    const questionId = getQuestionIdForProgress(current);
+    if (!sourcePaperId || !questionId) return;
+
+    const progress = wx.getStorageSync(getProgressKey(sourcePaperId)) || initProgress();
     const answers = progress.answers || {};
-    answers[current.id] = selected;
+    answers[questionId] = selected;
     progress.answers = answers;
 
-    const all = getQuestionsByPaperId(paperId);
+    const all = getQuestionsByPaperId(sourcePaperId);
     const questionMap = {};
     all.forEach((q) => {
       questionMap[q.id] = q;
@@ -354,7 +445,7 @@ Page({
     });
     progress.wrongIds = wrongIds;
     progress.correctCount = correctCount;
-    wx.setStorageSync(getProgressKey(paperId), progress);
+    wx.setStorageSync(getProgressKey(sourcePaperId), progress);
 
     const isCurrentCorrect = selected === current.answer;
     this.setData({
@@ -363,7 +454,7 @@ Page({
     });
 
     if (this._nextTimer) clearTimeout(this._nextTimer);
-    if (mode === 'wrong' && isCurrentCorrect) {
+    if (isWrongCollectionMode(mode) && isCurrentCorrect) {
       this._nextTimer = setTimeout(() => {
         this.goToQuestion(idx);
       }, 1000);
@@ -380,15 +471,21 @@ Page({
     const {
       questions,
       paperId,
+      volumeId,
+      chapterNo,
       submitted,
       mode,
     } = this.data;
     const scopeKey = resolveScopeKey(this.data);
     if (this._nextTimer) clearTimeout(this._nextTimer);
     let source = questions;
-    if (mode === 'wrong') {
-      const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
-      source = getWrongModeSource(paperId, progress);
+    if (isWrongCollectionMode(mode)) {
+      if (mode === 'wrong') {
+        const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
+        source = getWrongModeSource(paperId, progress);
+      } else {
+        source = getVolumeCollectionQuestions(volumeId, 'wrong', chapterNo || 'all').map(withChapterName);
+      }
       if (!source.length) {
         clearCursor(scopeKey);
         this.setData({
@@ -416,8 +513,10 @@ Page({
       wx.showToast({ title: '当前题未作答，已跳过', icon: 'none' });
     }
 
-    const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
     const next = withChapterName(source[targetIdx]);
+    const sourcePaperId = getSourcePaperIdForQuestion(next, paperId);
+    const questionId = getQuestionIdForProgress(next);
+    const progress = wx.getStorageSync(getProgressKey(sourcePaperId)) || initProgress();
     const uiState = shouldResetAnswerState(mode)
       ? { selected: -1, submitted: false, isCurrentCorrect: false }
       : getQuestionUiState(next, progress);
@@ -428,7 +527,7 @@ Page({
       current: next,
       isFirstQuestion: targetIdx === 0,
       isLastQuestion: targetIdx === maxIdx,
-      isFavorite: (progress.favorites || []).includes(next.id),
+      isFavorite: (progress.favorites || []).includes(questionId),
       ...uiState,
     });
     saveCursor(scopeKey, targetIdx, next.id);
@@ -454,14 +553,27 @@ Page({
   },
 
   resetPaperProgress() {
-    const key = getProgressKey(this.data.paperId);
+    const { mode, paperId, volumeId } = this.data;
     const scopeKey = resolveScopeKey(this.data);
-    const progress = wx.getStorageSync(key) || initProgress();
-    progress.answers = {};
-    progress.correctCount = 0;
-    wx.setStorageSync(key, progress);
+    if (isVolumeMode(mode)) {
+      const papers = getVolumePapers(volumeId);
+      papers.forEach((paper) => {
+        const key = getProgressKey(paper.id);
+        const progress = wx.getStorageSync(key) || initProgress();
+        progress.answers = {};
+        progress.correctCount = 0;
+        progress.wrongIds = [];
+        wx.setStorageSync(key, progress);
+      });
+    } else {
+      const key = getProgressKey(paperId);
+      const progress = wx.getStorageSync(key) || initProgress();
+      progress.answers = {};
+      progress.correctCount = 0;
+      wx.setStorageSync(key, progress);
+    }
     clearCursor(scopeKey);
-    if (this.data.mode === 'random') {
+    if (mode === 'random') {
       wx.removeStorageSync(getRandomOrderStorageKey(scopeKey));
     }
     this.setData({ disableCursorPersist: true });
@@ -471,6 +583,29 @@ Page({
       this.backToPaper();
       this._backTimer = null;
     }, 300);
+  },
+
+  safeRedirectToHome() {
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      wx.navigateBack({ delta: 1 });
+      return;
+    }
+    wx.redirectTo({ url: '/pages/exam/home/home' });
+  },
+
+  safeRedirectToVolumeCollection(volumeId, type) {
+    if (!volumeId) {
+      this.safeRedirectToHome();
+      return;
+    }
+    const url = `/pages/exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(volumeId)}&type=${type || 'wrong'}`;
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      wx.navigateBack({ delta: 1 });
+      return;
+    }
+    wx.redirectTo({ url });
   },
 
   backToPaper() {
@@ -485,7 +620,14 @@ Page({
       wx.navigateBack({ delta: 1 });
       return;
     }
-    const paperId = this.data.paperId;
+    const { paperId, mode, volumeId } = this.data;
+    if (isVolumeMode(mode) && volumeId) {
+      const type = getVolumeCollectionTypeByMode(mode);
+      wx.redirectTo({
+        url: `/pages/exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(volumeId)}&type=${type}`,
+      });
+      return;
+    }
     if (paperId) {
       wx.redirectTo({
         url: `/pages/exam/paper/paper?paperId=${paperId}`,

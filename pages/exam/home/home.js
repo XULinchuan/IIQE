@@ -1,4 +1,8 @@
 const { getPapersByType } = require('../../../utils/exam-data');
+const {
+  hasVolumePremium,
+  getVolumeCollectionSummary,
+} = require('../../../utils/volume-collection');
 const { getUserLocal } = require('../../../utils/auth');
 const {
   hasPremiumAccessLocal,
@@ -46,8 +50,19 @@ Page({
   async goPaper(e) {
     const { id } = e.currentTarget.dataset;
     if (!id) return;
-    const paper = (this.data.papers || []).find((p) => p.id === id);
-    if (paper && paper.premium) {
+    const card = (this.data.papers || []).find((p) => p.id === id);
+    if (!card) return;
+    if (card.cardType === 'volume') {
+      const url = `/pages/exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(card.volumeId)}&type=${card.collectionType}`;
+      wx.navigateTo({
+        url,
+        fail: () => {
+          wx.redirectTo({ url });
+        },
+      });
+      return;
+    }
+    if (card && card.premium) {
       if (!getUserLocal()) {
         wx.showToast({ title: '请先登录', icon: 'none' });
         wx.navigateTo({
@@ -87,10 +102,10 @@ Page({
       }
     }
     wx.navigateTo({
-      url: `/pages/exam/paper/paper?paperId=${id}`,
+      url: `/pages/exam/paper/paper?paperId=${card.id}`,
       fail: () => {
         wx.redirectTo({
-          url: `/pages/exam/paper/paper?paperId=${id}`,
+          url: `/pages/exam/paper/paper?paperId=${card.id}`,
         });
       },
     });
@@ -108,11 +123,38 @@ Page({
   },
 
   loadPapers() {
-    const papers = getPapersByType(this.data.activeType).map((paper) => ({
+    const { activeType, hasPremiumAccess, isAgent } = this.data;
+    const papers = getPapersByType(activeType).map((paper) => ({
       ...paper,
-      unlocked: !paper.premium || this.data.hasPremiumAccess || this.data.isAgent,
+      unlocked: !paper.premium || hasPremiumAccess || isAgent,
     }));
-    this.setData({ papers });
+    const volumePremium = hasVolumePremium(activeType);
+    const volumeUnlocked = !volumePremium || hasPremiumAccess || isAgent;
+    const wrongSummary = getVolumeCollectionSummary(activeType, 'wrong');
+    const favoriteSummary = getVolumeCollectionSummary(activeType, 'favorite');
+    const volumeCards = [
+      {
+        id: `volume-${activeType}-wrong`,
+        cardType: 'volume',
+        volumeId: activeType,
+        collectionType: 'wrong',
+        title: `${activeType}错题集（整卷）`,
+        total: wrongSummary.total,
+        premium: volumePremium,
+        unlocked: volumeUnlocked,
+      },
+      {
+        id: `volume-${activeType}-favorite`,
+        cardType: 'volume',
+        volumeId: activeType,
+        collectionType: 'favorite',
+        title: `${activeType}收藏集（整卷）`,
+        total: favoriteSummary.total,
+        premium: volumePremium,
+        unlocked: volumeUnlocked,
+      },
+    ];
+    this.setData({ papers: [...volumeCards, ...papers] });
   },
 
   loadEntitlement() {

@@ -1,0 +1,90 @@
+.page {
+  min-height: 100vh;
+  background: #f6f7f9;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.stats-card,
+.quick-card,
+.chapter-card {
+  background: #fff;
+  border-radius: 18rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.stats-title,
+.section-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 18rpx;
+}
+
+.single-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 14rpx 0 8rpx;
+}
+
+.single-num {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #e11d48;
+}
+
+.single-label {
+  font-size: 34rpx;
+  color: #666;
+  line-height: 1.2;
+}
+
+.quick-item {
+  height: 88rpx;
+  border-radius: 14rpx;
+  background: #f3f4f6;
+  font-size: 34rpx;
+  color: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chapter-row {
+  height: 108rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chapter-row:last-child {
+  border-bottom: none;
+}
+
+.title {
+  font-size: 34rpx;
+  color: #111;
+}
+
+.chapter-right {
+  font-size: 34rpx;
+  color: #666;
+}
+
+.empty {
+  height: 84rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9aa0a6;
+  font-size: 34rpx;
+}

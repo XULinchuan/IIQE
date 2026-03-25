@@ -20,9 +20,9 @@
     <view class="card" wx:for="{{papers}}" wx:key="id" data-id="{{item.id}}" bindtap="goPaper">
       <view class="card-title">{{item.title}}</view>
       <view class="card-sub">{{item.total}} 题</view>
-      <view wx:if="{{item.premium && item.unlocked}}" class="tag authorized">已授权</view>
-      <view wx:elif="{{item.premium}}" class="tag premium">需授权</view>
-      <view wx:else class="tag trial">试用</view>
+      <view wx:if="{{!item.cardType && item.premium && item.unlocked}}" class="tag authorized">已授权</view>
+      <view wx:elif="{{!item.cardType && item.premium}}" class="tag premium">需授权</view>
+      <view wx:elif="{{!item.cardType}}" class="tag trial">试用</view>
     </view>
   </view>
 

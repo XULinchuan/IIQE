@@ -42,7 +42,9 @@ describe('integration: login recovery across pages', () => {
 
     expect(wx.reLaunch).not.toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
     expect(wx.getStorageSync('iiqe_user_profile')).toBeUndefined();
-    expect(page.data.papers).toEqual([{ id: 'p1', premium: false, unlocked: true }]);
+    expect(page.data.papers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'p1', premium: false, unlocked: true }),
+    ]));
   });
 
   test('blocked page sets redirect and login page consumes redirect after login', async () => {

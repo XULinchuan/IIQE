@@ -19,11 +19,31 @@ function mockDeps({
   }));
   jest.doMock('../utils/exam-data', () => ({
     getPaperById: jest.fn((paperId) => (paperId ? { id: paperId, title: 'Test Paper', premium: paperPremium } : null)),
-    getQuestionsByPaperId: jest.fn(() => [
-      { id: 'q1', chapter: '1.1', answer: 0 },
-      { id: 'q2', chapter: '1.2', answer: 1 },
-      { id: 'q3', chapter: '2', answer: 2 },
-    ]),
+    getQuestionsByPaperId: jest.fn((paperId) => {
+      if (paperId === 'pA') {
+        return [{ id: 'pA-q1', chapter: '1.1', answer: 1 }];
+      }
+      if (paperId === 'pB') {
+        return [{ id: 'pB-q1', chapter: '2.1', answer: 0 }];
+      }
+      return [
+        { id: 'q1', chapter: '1.1', answer: 0 },
+        { id: 'q2', chapter: '1.2', answer: 1 },
+        { id: 'q3', chapter: '2', answer: 2 },
+      ];
+    }),
+  }));
+  jest.doMock('../utils/volume-collection', () => ({
+    hasVolumePremium: jest.fn(() => true),
+    getVolumePapers: jest.fn(() => [{ id: 'pA' }, { id: 'pB' }]),
+    getVolumeCollectionQuestions: jest.fn((volumeId, type, chapterNo = 'all') => {
+      const all = [
+        { id: 'pA-q1', chapter: '1.1', answer: 1, sourcePaperId: 'pA', sourcePaperTitle: 'A' },
+        { id: 'pB-q1', chapter: '2.1', answer: 0, sourcePaperId: 'pB', sourcePaperTitle: 'B' },
+      ];
+      if (chapterNo === 'all' || !chapterNo) return all;
+      return all.filter((q) => String(q.chapter).startsWith(`${chapterNo}.`) || String(q.chapter) === chapterNo);
+    }),
   }));
 }
 
@@ -406,5 +426,73 @@ describe('pages/exam/question/question.js', () => {
     expect(page.data.paperId).toBe('p_trial');
     expect(page.data.questions.length).toBeGreaterThan(0);
     expect(wx.setNavigationBarTitle).toHaveBeenCalledWith({ title: 'Test Paper' });
+  });
+
+  test('onLoad volume mode sets volume title and question list', async () => {
+    mockDeps({ premiumLocal: true });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+
+    await page.onLoad({ mode: 'volume_wrong', volumeId: encodeURIComponent('卷一'), chapterNo: 'all' });
+
+    expect(page.data.volumeId).toBe('卷一');
+    expect(page.data.questions.map((q) => q.id)).toEqual(['pA-q1', 'pB-q1']);
+    expect(wx.setNavigationBarTitle).toHaveBeenCalledWith({ title: '卷一错题集' });
+  });
+
+  test('toggleFavorite in volume mode writes to source paper progress', () => {
+    mockDeps({ premiumLocal: true });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    page.setData({
+      mode: 'volume_favorite',
+      volumeId: '卷一',
+      current: { id: 'pA-q1', sourcePaperId: 'pA' },
+      paperId: '',
+    });
+
+    page.toggleFavorite();
+
+    const progress = wx.getStorageSync('iiqe_progress_pA');
+    expect(progress.favorites).toContain('pA-q1');
+  });
+
+  test('resetPaperProgress in volume mode clears all papers in volume', () => {
+    mockDeps({ premiumLocal: true });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    page.backToPaper = jest.fn();
+    page.setData({
+      mode: 'volume_wrong',
+      volumeId: '卷一',
+      chapterNo: 'all',
+      scopeKey: 'volume:卷一:wrong:all',
+      current: { id: 'pA-q1', sourcePaperId: 'pA' },
+      idx: 0,
+    });
+    wx.setStorageSync('iiqe_progress_pA', { answers: { 'pA-q1': 1 }, correctCount: 1, wrongIds: [], favorites: ['pA-q1'] });
+    wx.setStorageSync('iiqe_progress_pB', { answers: { 'pB-q1': 0 }, correctCount: 1, wrongIds: [], favorites: [] });
+
+    page.resetPaperProgress();
+
+    expect(wx.getStorageSync('iiqe_progress_pA').answers).toEqual({});
+    expect(wx.getStorageSync('iiqe_progress_pB').answers).toEqual({});
+  });
+
+  test('backToPaper redirects to volume collection in volume mode', () => {
+    mockDeps({ premiumLocal: true });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    global.getCurrentPages = () => [{}];
+    page.setData({
+      mode: 'volume_favorite',
+      volumeId: '卷五',
+    });
+
+    page.backToPaper();
+
+    expect(wx.redirectTo).toHaveBeenCalledWith({
+      url: '/pages/exam/volume_collection/volume_collection?volumeId=%E5%8D%B7%E4%BA%94&type=favorite',
+    });
   });
 });

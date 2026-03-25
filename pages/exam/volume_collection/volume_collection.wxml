@@ -1,0 +1,23 @@
+<view class="page">
+  <view class="stats-card">
+    <view class="single-metric">
+      <view class="single-num">{{total}}</view>
+      <view class="single-label">{{countLabel}}</view>
+    </view>
+  </view>
+
+  <view class="quick-card">
+    <view class="quick-item" bindtap="startAll">全部题目练习</view>
+  </view>
+
+  <view class="chapter-card">
+    <view class="section-title">章节练习</view>
+    <view wx:for="{{chapterStats}}" wx:key="chapterNo" class="chapter-row" data-chapter-no="{{item.chapterNo}}" bindtap="startChapter">
+      <view class="left">
+        <view class="title">{{item.title}}</view>
+      </view>
+      <view class="chapter-right">{{item.total}}题</view>
+    </view>
+    <view wx:if="{{!chapterStats.length}}" class="empty">当前模式暂无题目</view>
+  </view>
+</view>

@@ -21,6 +21,16 @@ function mockDeps({ localPremium = false, localAgent = false, loggedIn = true } 
       { id: 'p2', premium: true },
     ]),
   }));
+  jest.doMock('../utils/volume-collection', () => ({
+    hasVolumePremium: jest.fn(() => true),
+    getVolumeCollectionSummary: jest.fn((volumeId, type) => ({
+      total: type === 'wrong' ? 3 : 5,
+      answered: 0,
+      correct: 0,
+      accuracy: '0%',
+      chapterStats: [],
+    })),
+  }));
 }
 
 describe('pages/exam/home/home.js', () => {
@@ -64,6 +74,53 @@ describe('pages/exam/home/home.js', () => {
 
     expect(page.data.showActivationDialog).toBe(true);
     expect(page.loadActivationQr).toHaveBeenCalled();
+  });
+
+  test('goPaper opens volume collection when clicking volume card', async () => {
+    mockDeps({ localPremium: true });
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.setData({
+      papers: [{
+        id: 'volume-卷一-wrong',
+        cardType: 'volume',
+        volumeId: '卷一',
+        collectionType: 'wrong',
+        premium: true,
+      }],
+      hasPremiumAccess: true,
+      isAgent: false,
+    });
+
+    await page.goPaper({ currentTarget: { dataset: { id: 'volume-卷一-wrong' } } });
+
+    expect(wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/pages/exam/volume_collection/volume_collection?volumeId=%E5%8D%B7%E4%B8%80&type=wrong',
+    }));
+  });
+
+  test('goPaper opens volume collection without login/entitlement', async () => {
+    mockDeps({ loggedIn: false, localPremium: false, localAgent: false });
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    page.setData({
+      papers: [{
+        id: 'volume-卷一-favorite',
+        cardType: 'volume',
+        volumeId: '卷一',
+        collectionType: 'favorite',
+        premium: true,
+      }],
+      hasPremiumAccess: false,
+      isAgent: false,
+    });
+
+    await page.goPaper({ currentTarget: { dataset: { id: 'volume-卷一-favorite' } } });
+
+    expect(wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
+      url: '/pages/exam/volume_collection/volume_collection?volumeId=%E5%8D%B7%E4%B8%80&type=favorite',
+    }));
+    expect(wx.showToast).not.toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
   });
 
   test('goPaper requires login before opening premium activation dialog', async () => {

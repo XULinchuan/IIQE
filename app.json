@@ -3,6 +3,7 @@
   "pages": [
     "pages/exam/home/home",
     "pages/exam/paper/paper",
+    "pages/exam/volume_collection/volume_collection",
     "pages/exam/question/question",
     "pages/exam/me/me",
     "pages/exam/records/records",
