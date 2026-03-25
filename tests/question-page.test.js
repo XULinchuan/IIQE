@@ -49,10 +49,32 @@ describe('pages/exam/question/question.js', () => {
     expect(wx.setNavigationBarTitle).toHaveBeenCalledWith({ title: 'Test Paper' });
   });
 
+  test('onLoad random mode reuses saved order and restores cursor by question id', async () => {
+    mockDeps();
+    wx.setStorageSync('iiqe_random_order_paper:p1:random', {
+      questionIds: ['q3', 'q1', 'q2'],
+      updatedAt: Date.now(),
+    });
+    wx.setStorageSync('iiqe_cursor_paper:p1:random', {
+      lastIndex: 0,
+      lastQuestionId: 'q1',
+      updatedAt: Date.now(),
+    });
+
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+
+    await page.onLoad({ paperId: 'p1', mode: 'random' });
+
+    expect(page.data.questions.map((q) => q.id)).toEqual(['q3', 'q1', 'q2']);
+    expect(page.data.idx).toBe(1);
+    expect(page.data.current.id).toBe('q1');
+  });
+
   test('onLoad wrong/favorite mode uses progress list', async () => {
     mockDeps();
     wx.setStorageSync('iiqe_progress_p1', {
-      answers: {},
+      answers: { q2: 1, q3: 2 },
       correctCount: 0,
       wrongIds: ['q2'],
       favorites: ['q3'],
@@ -64,10 +86,14 @@ describe('pages/exam/question/question.js', () => {
     await page.onLoad({ paperId: 'p1', mode: 'wrong' });
     expect(page.data.questions.map((q) => q.id)).toEqual(['q2']);
     expect(page.data.navTitle).toBe('错题集');
+    expect(page.data.selected).toBe(-1);
+    expect(page.data.submitted).toBe(false);
 
     await page.onLoad({ paperId: 'p1', mode: 'favorite' });
     expect(page.data.questions.map((q) => q.id)).toEqual(['q3']);
     expect(page.data.navTitle).toBe('收藏题');
+    expect(page.data.selected).toBe(-1);
+    expect(page.data.submitted).toBe(false);
   });
 
   test('onLoad sets finished when selected mode has no question', async () => {
@@ -112,6 +138,27 @@ describe('pages/exam/question/question.js', () => {
     expect(page.answerCurrentQuestion).not.toHaveBeenCalled();
   });
 
+  test('onLoad restores answered state and keeps question readonly', async () => {
+    mockDeps();
+    wx.setStorageSync('iiqe_progress_p1', {
+      answers: { q1: 0 },
+      correctCount: 1,
+      wrongIds: [],
+      favorites: [],
+    });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    page.answerCurrentQuestion = jest.fn();
+
+    await page.onLoad({ paperId: 'p1', mode: 'chapter', chapterNo: '1' });
+    page.chooseOption({ currentTarget: { dataset: { index: 2 } } });
+
+    expect(page.data.selected).toBe(0);
+    expect(page.data.submitted).toBe(true);
+    expect(page.data.isCurrentCorrect).toBe(true);
+    expect(page.answerCurrentQuestion).not.toHaveBeenCalled();
+  });
+
   test('toggleFavorite adds and removes favorite', () => {
     mockDeps();
     const def = loadPage('../pages/exam/question/question.js');
@@ -129,7 +176,7 @@ describe('pages/exam/question/question.js', () => {
     expect(page.data.isFavorite).toBe(false);
   });
 
-  test('nextQuestion advances and marks finished at end', () => {
+  test('nextQuestion advances, skips unanswered with tip, and blocks at end', () => {
     mockDeps();
     wx.setStorageSync('iiqe_progress_p1', { answers: {}, correctCount: 0, wrongIds: [], favorites: ['q2'] });
     const def = loadPage('../pages/exam/question/question.js');
@@ -139,16 +186,77 @@ describe('pages/exam/question/question.js', () => {
       questions: [{ id: 'q1', answer: 0 }, { id: 'q2', answer: 1 }],
       idx: 0,
       current: { id: 'q1', answer: 0 },
+      submitted: false,
     });
 
     page.nextQuestion();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '当前题未作答，已跳过', icon: 'none' });
     expect(page.data.idx).toBe(1);
     expect(page.data.current.id).toBe('q2');
     expect(page.data.isFavorite).toBe(true);
+    expect(page.data.submitted).toBe(false);
 
     page.nextQuestion();
-    expect(page.data.finished).toBe(true);
-    expect(page.data.emptyReason).toBe('本次练习已完成');
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '已是最后一题', icon: 'none' });
+    expect(page.data.idx).toBe(1);
+  });
+
+  test('favorite mode navigation keeps question as unanswered state', () => {
+    mockDeps();
+    wx.setStorageSync('iiqe_progress_p1', {
+      answers: { q1: 0, q2: 1 },
+      correctCount: 2,
+      wrongIds: [],
+      favorites: ['q1', 'q2'],
+    });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    page.setData({
+      mode: 'favorite',
+      paperId: 'p1',
+      questions: [{ id: 'q1', answer: 0 }, { id: 'q2', answer: 1 }],
+      idx: 0,
+      current: { id: 'q1', answer: 0 },
+      submitted: true,
+      selected: 0,
+    });
+
+    page.nextQuestion();
+
+    expect(page.data.idx).toBe(1);
+    expect(page.data.current.id).toBe('q2');
+    expect(page.data.selected).toBe(-1);
+    expect(page.data.submitted).toBe(false);
+    expect(page.data.isCurrentCorrect).toBe(false);
+  });
+
+  test('prevQuestion goes back and blocks at first question', () => {
+    mockDeps();
+    wx.setStorageSync('iiqe_progress_p1', {
+      answers: { q1: 0 },
+      correctCount: 1,
+      wrongIds: [],
+      favorites: [],
+    });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    page.setData({
+      paperId: 'p1',
+      questions: [{ id: 'q1', answer: 0 }, { id: 'q2', answer: 1 }],
+      idx: 1,
+      current: { id: 'q2', answer: 1 },
+      submitted: false,
+    });
+
+    page.prevQuestion();
+    expect(page.data.idx).toBe(0);
+    expect(page.data.current.id).toBe('q1');
+    expect(page.data.submitted).toBe(true);
+    expect(page.data.selected).toBe(0);
+
+    page.prevQuestion();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '已是第一题', icon: 'none' });
+    expect(page.data.idx).toBe(0);
   });
 
   test('resetPaperProgress only clears answers/correctCount then back', () => {
@@ -173,6 +281,95 @@ describe('pages/exam/question/question.js', () => {
 
     jest.advanceTimersByTime(300);
     expect(page.backToPaper).toHaveBeenCalled();
+  });
+
+  test('resetPaperProgress clears current scope cursor and random order in random mode', () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    page.backToPaper = jest.fn();
+    page.setData({
+      paperId: 'p1',
+      mode: 'random',
+      chapterNo: '',
+      scopeKey: 'paper:p1:random',
+    });
+    wx.setStorageSync('iiqe_progress_p1', {
+      answers: { q1: 0 },
+      correctCount: 1,
+      wrongIds: ['q2'],
+      favorites: ['q3'],
+    });
+    wx.setStorageSync('iiqe_cursor_paper:p1:random', {
+      lastIndex: 2,
+      lastQuestionId: 'q3',
+      updatedAt: Date.now(),
+    });
+    wx.setStorageSync('iiqe_random_order_paper:p1:random', {
+      questionIds: ['q3', 'q1', 'q2'],
+      updatedAt: Date.now(),
+    });
+
+    page.resetPaperProgress();
+
+    expect(wx.getStorageSync('iiqe_cursor_paper:p1:random')).toBeUndefined();
+    expect(wx.getStorageSync('iiqe_random_order_paper:p1:random')).toBeUndefined();
+  });
+
+  test('resetPaperProgress should not write cursor back during leave', () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    page.setData({
+      paperId: 'p1',
+      mode: 'chapter',
+      chapterNo: '1',
+      scopeKey: 'paper:p1:chapter:1',
+      idx: 1,
+      current: { id: 'q2', answer: 1 },
+    });
+    wx.setStorageSync('iiqe_progress_p1', {
+      answers: { q1: 0, q2: 1 },
+      correctCount: 2,
+      wrongIds: [],
+      favorites: [],
+    });
+    wx.setStorageSync('iiqe_cursor_paper:p1:chapter:1', {
+      lastIndex: 1,
+      lastQuestionId: 'q2',
+      updatedAt: Date.now(),
+    });
+
+    page.resetPaperProgress();
+    jest.advanceTimersByTime(300);
+    page.onHide();
+    page.onUnload();
+
+    expect(wx.getStorageSync('iiqe_cursor_paper:p1:chapter:1')).toBeUndefined();
+  });
+
+  test('goToQuestion persists cursor', () => {
+    mockDeps();
+    wx.setStorageSync('iiqe_progress_p1', { answers: {}, correctCount: 0, wrongIds: [], favorites: [] });
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    page.setData({
+      paperId: 'p1',
+      mode: 'chapter',
+      chapterNo: '1',
+      scopeKey: 'paper:p1:chapter:1',
+      questions: [{ id: 'q1', answer: 0 }, { id: 'q2', answer: 1 }],
+      idx: 0,
+      current: { id: 'q1', answer: 0 },
+      submitted: false,
+    });
+
+    page.goToQuestion(1);
+
+    expect(wx.getStorageSync('iiqe_cursor_paper:p1:chapter:1')).toMatchObject({
+      lastIndex: 1,
+      lastQuestionId: 'q2',
+    });
   });
 
   test('backToPaper navigates by stack/paperId/home and onUnload clears timer', () => {

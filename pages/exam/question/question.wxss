@@ -137,11 +137,14 @@
   font-size: 34rpx;
 }
 
-.bottom {
+.bottom-nav {
   margin-top: 20rpx;
+  display: flex;
+  gap: 12rpx;
 }
 
-.bottom-btn {
+.nav-btn {
+  flex: 1;
   height: 84rpx;
   border-radius: 14rpx;
   background: #111827;
@@ -152,17 +155,13 @@
   justify-content: center;
 }
 
-.bottom-btn.primary {
+.nav-btn.primary {
   background: #e11d48;
 }
 
-.auto-next-tip {
-  height: 72rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 34rpx;
-  color: #16a34a;
+.nav-btn.disabled {
+  background: #d1d5db;
+  color: #6b7280;
 }
 
 .empty {

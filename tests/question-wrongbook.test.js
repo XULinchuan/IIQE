@@ -39,7 +39,8 @@ describe('question wrong/fix logic', () => {
     const progress = getStoredProgress();
     expect(progress.wrongIds).toEqual(['q1']);
     expect(progress.correctCount).toBe(0);
-    expect(page.data.showNextButton).toBe(true);
+    expect(page.data.submitted).toBe(true);
+    expect(page.data.isCurrentCorrect).toBe(false);
     expect(page.nextQuestion).not.toHaveBeenCalled();
   });
 
@@ -78,5 +79,62 @@ describe('question wrong/fix logic', () => {
     const progress = getStoredProgress();
     expect(progress.wrongIds).toEqual(['q1']);
     expect(progress.wrongIds.length).toBe(1);
+  });
+
+  test('wrong mode correct answer removes current question from wrong source and jumps to next wrong', () => {
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    wx.setStorageSync('iiqe_progress_p1', {
+      answers: { q1: 1, q2: 1 },
+      correctCount: 0,
+      wrongIds: ['q1', 'q2'],
+      favorites: [],
+    });
+    page.setData({
+      mode: 'wrong',
+      paperId: 'p1',
+      idx: 0,
+      questions: [{ id: 'q1', chapter: '1.1', answer: 3 }, { id: 'q2', chapter: '1.2', answer: 0 }],
+      current: { id: 'q1', chapter: '1.1', answer: 3 },
+      isLastQuestion: false,
+    });
+
+    page.answerCurrentQuestion(3);
+    jest.advanceTimersByTime(1000);
+
+    const progress = getStoredProgress();
+    expect(progress.wrongIds).toEqual(['q2']);
+    expect(page.data.current.id).toBe('q2');
+    expect(page.data.questions.map((q) => q.id)).toEqual(['q2']);
+    expect(page.data.submitted).toBe(false);
+    expect(page.data.selected).toBe(-1);
+  });
+
+  test('wrong mode correct answer on last wrong question exits wrong mode list', () => {
+    const def = loadPage('../pages/exam/question/question.js');
+    const page = createPageInstance(def);
+    wx.setStorageSync('iiqe_progress_p1', {
+      answers: { q1: 1 },
+      correctCount: 0,
+      wrongIds: ['q1'],
+      favorites: [],
+    });
+    page.setData({
+      mode: 'wrong',
+      paperId: 'p1',
+      idx: 0,
+      questions: [{ id: 'q1', chapter: '1.1', answer: 3 }],
+      current: { id: 'q1', chapter: '1.1', answer: 3 },
+      isLastQuestion: true,
+    });
+
+    page.answerCurrentQuestion(3);
+    jest.advanceTimersByTime(1000);
+
+    const progress = getStoredProgress();
+    expect(progress.wrongIds).toEqual([]);
+    expect(page.data.finished).toBe(true);
+    expect(page.data.current).toBeNull();
+    expect(page.data.emptyReason).toBe('当前模式暂无题目');
   });
 });
