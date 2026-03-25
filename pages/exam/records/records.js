@@ -16,7 +16,12 @@ Page({
   },
 
   loadRows() {
-    const allPapers = [...getPapersByType('卷三'), ...getPapersByType('卷一')];
+    const allPapers = [
+      ...getPapersByType('卷三'),
+      ...getPapersByType('卷一'),
+      ...getPapersByType('卷二'),
+      ...getPapersByType('卷五'),
+    ];
     const rows = allPapers.map((p) => {
       const progress = wx.getStorageSync(getProgressKey(p.id)) || { answers: {}, wrongIds: [], favorites: [] };
       return {

@@ -8,7 +8,7 @@
       </view>
       <view wx:else class="avatar placeholder">?</view>
       <view class="user-info">
-        <view wx:if="{{isLoggedIn}}" class="nick">{{user.nickName || '微信用户'}}</view>
+        <view wx:if="{{isLoggedIn}}" class="nick clickable" bindtap="openNickDialog">{{user.nickName || '微信用户'}}</view>
         <view wx:else class="nick">未登录</view>
         <view wx:if="{{!isLoggedIn}}" class="sub">扫码进入后点击登录/注册</view>
       </view>
@@ -97,6 +97,33 @@
       <view class="verify-btn {{redeemingAgent ? 'disabled' : ''}}" bindtap="redeemAgentCode">
         {{redeemingAgent ? '验证中...' : '开通代理人'}}
       </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showNickDialog}}" class="dialog-mask" bindtap="closeNickDialog">
+    <view class="dialog-card" catchtap="noop">
+      <view class="dialog-close" bindtap="closeNickDialog">×</view>
+      <view class="dialog-title">修改昵称</view>
+      <view class="dialog-sub">编辑昵称时可选择微信昵称</view>
+      <form bindsubmit="onNickFormSubmit" report-submit="true">
+        <view class="code-row">
+          <view class="code-label">昵称</view>
+          <input
+            class="code-input"
+            type="nickname"
+            name="nickname"
+            placeholder="请输入昵称"
+            maxlength="20"
+            value="{{nickDraft}}"
+            bindinput="onNickInput"
+          />
+        </view>
+        <view class="nick-actions">
+          <button class="nick-btn primary {{updatingNick ? 'disabled' : ''}}" form-type="submit" disabled="{{updatingNick}}">
+            {{updatingNick ? '保存中...' : '保存昵称'}}
+          </button>
+        </view>
+      </form>
     </view>
   </view>
 </view>

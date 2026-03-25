@@ -1,6 +1,6 @@
-function buildRateTx({ limited = false, fail = false, limit = 10 } = {}) {
+function buildRateTx({ limited = false, fail = false, limit = 10, windowSec = 60 } = {}) {
   const now = Date.now();
-  const windowStart = now - (now % (60 * 1000));
+  const windowStart = now - (now % (windowSec * 1000));
   return {
     collection: jest.fn(() => ({
       doc: jest.fn(() => ({
@@ -175,5 +175,31 @@ describe('cloud function input validation and key branches', () => {
     const result = await runMain('../cloudfunctions/checkEntitlement/index.js', cloudMock, {});
     expect(result.ok).toBe(false);
     expect(result.hasAccess).toBe(false);
+  });
+
+  test('upsertUserProfile returns too frequent when rate limited', async () => {
+    const rateTx = buildRateTx({ limited: true, limit: 6, windowSec: 300 });
+    const cloudMock = baseCloudMock({
+      startTransactionImpl: jest.fn(async () => rateTx),
+    });
+    const result = await runMain('../cloudfunctions/upsertUserProfile/index.js', cloudMock, {
+      nickName: '测试昵称',
+      avatarUrl: 'cloud://a.jpg',
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe('请求过于频繁，请稍后再试');
+  });
+
+  test('upsertUserProfile returns busy when rate check fails', async () => {
+    const rateTx = buildRateTx({ fail: true });
+    const cloudMock = baseCloudMock({
+      startTransactionImpl: jest.fn(async () => rateTx),
+    });
+    const result = await runMain('../cloudfunctions/upsertUserProfile/index.js', cloudMock, {
+      nickName: '测试昵称',
+      avatarUrl: 'cloud://a.jpg',
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe('系统繁忙，请稍后再试');
   });
 });

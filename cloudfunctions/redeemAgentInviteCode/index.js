@@ -59,7 +59,7 @@ exports.main = async (event = {}) => {
   }
 
   const code = normalizeCode(event.code);
-  if (!/^[A-Z2-9]{8,20}$/.test(code)) {
+  if (!/^[A-Z0-9]{8,20}$/.test(code)) {
     return { ok: false, message: '代理人码格式错误' };
   }
 

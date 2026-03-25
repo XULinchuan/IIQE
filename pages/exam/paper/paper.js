@@ -45,6 +45,7 @@ Page({
       this.safeBack('/pages/exam/home/home');
       return;
     }
+    wx.setNavigationBarTitle({ title: paper.title });
     if (paper.premium && !await requireLogin('/pages/exam/paper/paper')) return;
     if (!hasPaperAccess(paper)) {
       wx.showToast({ title: '该试卷需先授权', icon: 'none' });
@@ -55,7 +56,6 @@ Page({
       paperId,
       paperTitle: paper.title,
     });
-    wx.setNavigationBarTitle({ title: paper.title });
     this.refreshStats();
   },
 

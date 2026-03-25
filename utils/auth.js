@@ -1,6 +1,7 @@
 function getUserKey() {
   return 'iiqe_user_profile';
 }
+const { safeUserMessage } = require('./user-message');
 
 function normalizeUser(raw) {
   const data = raw || {};
@@ -79,7 +80,7 @@ async function upsertUserProfileToCloud(userInput) {
     if (!(result && result.ok && result.user)) {
       return {
         ok: false,
-        message: String((result && result.message) || '保存失败，请稍后重试'),
+        message: safeUserMessage(result && result.message, '保存失败，请稍后重试'),
       };
     }
     const user = setUserLocal(result.user);

@@ -53,7 +53,7 @@ exports.main = async (event) => {
   }
 
   const code = normalizeCode(event && event.code);
-  if (!/^[A-Z2-9]{8,20}$/.test(code)) {
+  if (!/^[A-Z0-9]{8,20}$/.test(code)) {
     return { ok: false, message: '授权码格式错误' };
   }
 

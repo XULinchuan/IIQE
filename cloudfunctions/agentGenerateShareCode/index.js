@@ -58,7 +58,7 @@ exports.main = async (event = {}) => {
     return { ok: false, message: '当前代理人资格不可用，请联系管理员' };
   }
 
-  const envVersion = String(event.envVersion || 'trial');
+  const envVersion = 'release';
   const page = 'pages/exam/home/home';
   const scene = `ref=${profile._id}`;
 

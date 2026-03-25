@@ -1,5 +1,6 @@
 const { requireLogin } = require('../../../utils/auth');
 const { refreshMyAgentProfile, setAgentProfile } = require('../../../utils/entitlement');
+const { safeUserMessage } = require('../../../utils/user-message');
 
 function isUserCanceled(err) {
   const msg = String((err && err.errMsg) || err || '').toLowerCase();
@@ -12,8 +13,8 @@ function isPermissionDenied(err) {
 }
 
 function pickMessage(result, fallback) {
-  const msg = result && typeof result.message === 'string' ? result.message.trim() : '';
-  return msg || fallback;
+  const msg = result && typeof result.message === 'string' ? result.message : '';
+  return safeUserMessage(msg, fallback);
 }
 
 Page({
@@ -43,7 +44,11 @@ Page({
     });
     if (!isAgent) {
       wx.showToast({ title: '请先开通代理人', icon: 'none' });
-      setTimeout(() => this.back(), 300);
+      if (this._backTimer) clearTimeout(this._backTimer);
+      this._backTimer = setTimeout(() => {
+        this.back();
+        this._backTimer = null;
+      }, 300);
     }
   },
 
@@ -54,7 +59,7 @@ Page({
       const res = await wx.cloud.callFunction({
         name: 'agentGenerateShareCode',
         data: {
-          envVersion: 'trial',
+          envVersion: 'release',
         },
       });
       const result = res && res.result;
@@ -147,11 +152,22 @@ Page({
   },
 
   back() {
+    if (this._backTimer) {
+      clearTimeout(this._backTimer);
+      this._backTimer = null;
+    }
     const pages = getCurrentPages();
     if (pages.length > 1) {
       wx.navigateBack({ delta: 1 });
       return;
     }
     wx.redirectTo({ url: '/pages/exam/me/me' });
+  },
+
+  onUnload() {
+    if (this._backTimer) {
+      clearTimeout(this._backTimer);
+      this._backTimer = null;
+    }
   },
 });

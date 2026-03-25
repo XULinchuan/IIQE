@@ -4,6 +4,15 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 
+function isValidAgentQrFileID(fileID, agentId) {
+  const text = String(fileID || '').trim();
+  const aid = String(agentId || '').trim();
+  if (!text || !aid) return false;
+  if (!/^cloud:\/\//.test(text)) return false;
+  const marker = `/agent-wx-qrs/${aid}-`;
+  return text.indexOf(marker) >= 0;
+}
+
 async function checkRateLimit(openId, action, limit, windowSec) {
   const now = Date.now();
   const windowStart = now - (now % (windowSec * 1000));
@@ -60,6 +69,10 @@ exports.main = async (event = {}) => {
   }
   if ((profile.status || 'active') !== 'active') {
     return { ok: false, message: '当前代理人资格不可用，请联系管理员' };
+  }
+
+  if (!isValidAgentQrFileID(wxQrFileID, profile._id)) {
+    return { ok: false, message: '请重新上传代理人二维码' };
   }
 
   await db.collection('iiqe_agent_profiles').doc(profile._id).update({

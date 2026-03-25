@@ -13,10 +13,11 @@ const {
   refreshMyAgentProfile,
   refreshActivationQrByUser,
 } = require('../../../utils/entitlement');
+const { safeUserMessage } = require('../../../utils/user-message');
 
 function pickMessage(result, fallback) {
-  const msg = result && typeof result.message === 'string' ? result.message.trim() : '';
-  return msg || fallback;
+  const msg = result && typeof result.message === 'string' ? result.message : '';
+  return safeUserMessage(msg, fallback);
 }
 
 Page({
@@ -35,6 +36,9 @@ Page({
     redeemingAgent: false,
     activationQrSrc: '',
     activationQrLoading: false,
+    showNickDialog: false,
+    nickDraft: '',
+    updatingNick: false,
   },
 
   onLoad(options) {
@@ -67,16 +71,20 @@ Page({
       agentStatus: (localAgent && localAgent.status) || '',
       agentId: (localAgent && localAgent.agentId) || '',
     });
-    refreshPremiumAccess().then((enabled) => {
-      this.setData({ hasPremiumAccess: !!enabled });
-    });
-    refreshMyAgentProfile().then((profile) => {
-      this.setData({
-        isAgent: !!(profile && profile.isAgent && profile.status !== 'disabled'),
-        agentStatus: (profile && profile.status) || '',
-        agentId: (profile && profile.agentId) || '',
-      });
-    });
+    refreshPremiumAccess()
+      .then((enabled) => {
+        this.setData({ hasPremiumAccess: !!enabled });
+      })
+      .catch(() => {});
+    refreshMyAgentProfile()
+      .then((profile) => {
+        this.setData({
+          isAgent: !!(profile && profile.isAgent && profile.status !== 'disabled'),
+          agentStatus: (profile && profile.status) || '',
+          agentId: (profile && profile.agentId) || '',
+        });
+      })
+      .catch(() => {});
   },
 
   loginOrRegister() {
@@ -102,13 +110,15 @@ Page({
         const redirectUrl = normalizeRedirectUrl(wx.getStorageSync('iiqe_login_redirect'));
         if (redirectUrl) {
           wx.removeStorageSync('iiqe_login_redirect');
-          setTimeout(() => {
+          if (this._loginRedirectTimer) clearTimeout(this._loginRedirectTimer);
+          this._loginRedirectTimer = setTimeout(() => {
             wx.redirectTo({
               url: redirectUrl,
               fail: () => {
                 wx.reLaunch({ url: '/pages/exam/home/home' });
               },
             });
+            this._loginRedirectTimer = null;
           }, 250);
         }
       },
@@ -174,6 +184,68 @@ Page({
     const user = syncRes.user;
     this.setData({ user });
     wx.showToast({ title: '头像已更新', icon: 'success' });
+  },
+
+  openNickDialog() {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
+    this.setData({
+      showNickDialog: true,
+      nickDraft: ((this.data.user && this.data.user.nickName) || '').slice(0, 20),
+    });
+  },
+
+  closeNickDialog() {
+    this.setData({
+      showNickDialog: false,
+      nickDraft: '',
+      updatingNick: false,
+    });
+  },
+
+  onNickInput(e) {
+    const value = ((e && e.detail && e.detail.value) || '').replace(/\r?\n/g, '');
+    this.setData({ nickDraft: value.slice(0, 20) });
+  },
+
+  onNickFormSubmit(e) {
+    const formNick = (((e && e.detail && e.detail.value) || {}).nickname || '').replace(/\r?\n/g, '').slice(0, 20);
+    if (formNick && formNick !== this.data.nickDraft) {
+      this.setData({ nickDraft: formNick });
+    }
+    return this.saveNickName(formNick);
+  },
+
+  async saveNickName(nickNameOverride = '') {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
+    const nickName = (nickNameOverride || this.data.nickDraft || '').trim();
+    if (!nickName) {
+      wx.showToast({ title: '请输入昵称', icon: 'none' });
+      return;
+    }
+    this.setData({ updatingNick: true });
+    const oldUser = this.data.user || {};
+    const syncRes = await upsertUserProfileToCloud({
+      nickName,
+      avatarUrl: oldUser.avatarUrl || '',
+    });
+    if (!syncRes.ok || !syncRes.user) {
+      this.setData({ updatingNick: false });
+      wx.showToast({ title: syncRes.message || '昵称更新失败，请稍后重试', icon: 'none' });
+      return;
+    }
+    this.setData({
+      user: syncRes.user,
+      updatingNick: false,
+      showNickDialog: false,
+      nickDraft: '',
+    });
+    wx.showToast({ title: '昵称已更新', icon: 'success' });
   },
 
   async loadActivationQr() {
@@ -515,5 +587,12 @@ Page({
       return;
     }
     wx.redirectTo({ url: '/pages/exam/home/home' });
+  },
+
+  onUnload() {
+    if (this._loginRedirectTimer) {
+      clearTimeout(this._loginRedirectTimer);
+      this._loginRedirectTimer = null;
+    }
   },
 });

@@ -8,7 +8,7 @@ describe('integration: login recovery across pages', () => {
     wx.getUserProfile = jest.fn();
   });
 
-  test('protected page auto-recovers login from cloud profile', async () => {
+  test('home onShow keeps guest state and loads trial papers without forcing login', async () => {
     wx.cloud.callFunction.mockResolvedValueOnce({
       result: {
         ok: true,
@@ -41,7 +41,7 @@ describe('integration: login recovery across pages', () => {
     await page.onShow();
 
     expect(wx.reLaunch).not.toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
-    expect(wx.getStorageSync('iiqe_user_profile')).toEqual(expect.objectContaining({ id: 'openid_auto' }));
+    expect(wx.getStorageSync('iiqe_user_profile')).toBeUndefined();
     expect(page.data.papers).toEqual([{ id: 'p1', premium: false, unlocked: true }]);
   });
 

@@ -63,6 +63,66 @@ describe('pages/exam/me/me.js', () => {
     expect(wx.showToast).toHaveBeenCalledWith({ title: '保存失败', icon: 'none' });
   });
 
+  test('openNickDialog requires login and opens with current nickname', () => {
+    mockDeps({ user: { id: 'u1', nickName: '现有昵称', avatarUrl: '' } });
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+
+    page.setData({ isLoggedIn: false });
+    page.openNickDialog();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+
+    page.setData({ isLoggedIn: true, user: { id: 'u1', nickName: '现有昵称', avatarUrl: '' } });
+    page.openNickDialog();
+    expect(page.data.showNickDialog).toBe(true);
+    expect(page.data.nickDraft).toBe('现有昵称');
+  });
+
+  test('saveNickName validates input and updates profile', async () => {
+    const { upsertUserProfileToCloud } = mockDeps({ user: { id: 'u1', nickName: '旧昵称', avatarUrl: 'cloud://a.jpg' } });
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+
+    page.setData({ isLoggedIn: false, nickDraft: '新昵称' });
+    await page.saveNickName();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+
+    page.setData({ isLoggedIn: true, nickDraft: '   ' });
+    await page.saveNickName();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请输入昵称', icon: 'none' });
+
+    upsertUserProfileToCloud.mockResolvedValueOnce({
+      ok: true,
+      user: { id: 'u1', nickName: '新昵称', avatarUrl: 'cloud://a.jpg' },
+    });
+    page.setData({
+      isLoggedIn: true,
+      user: { id: 'u1', nickName: '旧昵称', avatarUrl: 'cloud://a.jpg' },
+      nickDraft: '新昵称',
+      showNickDialog: true,
+    });
+    await page.saveNickName();
+    expect(page.data.user.nickName).toBe('新昵称');
+    expect(page.data.showNickDialog).toBe(false);
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '昵称已更新', icon: 'success' });
+  });
+
+  test('onNickFormSubmit prefers form value and saves nickname', async () => {
+    const { upsertUserProfileToCloud } = mockDeps({ user: { id: 'u1', nickName: '旧昵称', avatarUrl: '' } });
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+    page.setData({ isLoggedIn: true, user: { id: 'u1', nickName: '旧昵称', avatarUrl: '' }, showNickDialog: true });
+
+    upsertUserProfileToCloud.mockResolvedValueOnce({
+      ok: true,
+      user: { id: 'u1', nickName: '微信昵称', avatarUrl: '' },
+    });
+    await page.onNickFormSubmit({ detail: { value: { nickname: '微信昵称' } } });
+    expect(page.data.user.nickName).toBe('微信昵称');
+    expect(page.data.showNickDialog).toBe(false);
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '昵称已更新', icon: 'success' });
+  });
+
   test('openActivationDialog blocks when already authorized', () => {
     mockDeps({ premium: true });
     const def = loadPage('../pages/exam/me/me.js');

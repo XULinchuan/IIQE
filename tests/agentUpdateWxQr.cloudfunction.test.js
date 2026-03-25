@@ -79,33 +79,45 @@ describe('cloudfunctions/agentUpdateWxQr branches', () => {
   });
 
   test('returns rate limited', async () => {
-    const result = await callMain(createCloudMock({ rateLimited: true }), { wxQrFileID: 'cloud://a.jpg' });
+    const result = await callMain(createCloudMock({ rateLimited: true }), { wxQrFileID: 'cloud://test-env.bucket/agent-wx-qrs/agt_1-1.jpg' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('请求过于频繁，请稍后再试');
   });
 
   test('returns busy when rate checker fails', async () => {
-    const result = await callMain(createCloudMock({ rateFail: true }), { wxQrFileID: 'cloud://a.jpg' });
+    const result = await callMain(createCloudMock({ rateFail: true }), { wxQrFileID: 'cloud://test-env.bucket/agent-wx-qrs/agt_1-1.jpg' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('系统繁忙，请稍后再试');
   });
 
   test('requires agent profile', async () => {
-    const result = await callMain(createCloudMock({ profile: null }), { wxQrFileID: 'cloud://a.jpg' });
+    const result = await callMain(createCloudMock({ profile: null }), { wxQrFileID: 'cloud://test-env.bucket/agent-wx-qrs/agt_1-1.jpg' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('请先开通代理人');
   });
 
   test('blocks disabled profile', async () => {
-    const result = await callMain(createCloudMock({ profile: { _id: 'agt_1', status: 'disabled' } }), { wxQrFileID: 'cloud://a.jpg' });
+    const result = await callMain(createCloudMock({ profile: { _id: 'agt_1', status: 'disabled' } }), { wxQrFileID: 'cloud://test-env.bucket/agent-wx-qrs/agt_1-1.jpg' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('当前代理人资格不可用，请联系管理员');
   });
 
+  test('rejects file id that is not under current agent prefix', async () => {
+    const result = await callMain(
+      createCloudMock({ profile: { _id: 'agt_9', status: 'active' } }),
+      { wxQrFileID: 'cloud://test-env.bucket/agent-wx-qrs/agt_8-1.jpg' },
+    );
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe('请重新上传代理人二维码');
+  });
+
   test('updates successfully with active profile', async () => {
-    const result = await callMain(createCloudMock({ profile: { _id: 'agt_9', status: 'active' } }), { wxQrFileID: 'cloud://new.jpg' });
+    const result = await callMain(
+      createCloudMock({ profile: { _id: 'agt_9', status: 'active' } }),
+      { wxQrFileID: 'cloud://test-env.bucket/agent-wx-qrs/agt_9-123.jpg' },
+    );
     expect(result.ok).toBe(true);
     expect(result.agentId).toBe('agt_9');
-    expect(result.wxQrFileID).toBe('cloud://new.jpg');
+    expect(result.wxQrFileID).toBe('cloud://test-env.bucket/agent-wx-qrs/agt_9-123.jpg');
   });
 });

@@ -8,15 +8,16 @@ const {
   refreshMyAgentProfile,
   refreshActivationQrByUser,
 } = require('../../../utils/entitlement');
+const { safeUserMessage } = require('../../../utils/user-message');
 
 function pickMessage(result, fallback) {
-  const msg = result && typeof result.message === 'string' ? result.message.trim() : '';
-  return msg || fallback;
+  const msg = result && typeof result.message === 'string' ? result.message : '';
+  return safeUserMessage(msg, fallback);
 }
 
 Page({
   data: {
-    typeTabs: ['卷三', '卷一'],
+    typeTabs: ['卷三', '卷一', '卷二', '卷五'],
     activeType: '卷三',
     papers: [],
     hasPremiumAccess: false,
@@ -121,13 +122,17 @@ Page({
       hasPremiumAccess: localAccess,
       isAgent: localAgent,
     }, () => this.loadPapers());
-    refreshPremiumAccess().then((enabled) => {
-      this.setData({ hasPremiumAccess: !!enabled }, () => this.loadPapers());
-    });
-    refreshMyAgentProfile().then((profile) => {
-      const isAgent = !!(profile && profile.isAgent && profile.status !== 'disabled');
-      this.setData({ isAgent }, () => this.loadPapers());
-    });
+    refreshPremiumAccess()
+      .then((enabled) => {
+        this.setData({ hasPremiumAccess: !!enabled }, () => this.loadPapers());
+      })
+      .catch(() => {});
+    refreshMyAgentProfile()
+      .then((profile) => {
+        const isAgent = !!(profile && profile.isAgent && profile.status !== 'disabled');
+        this.setData({ isAgent }, () => this.loadPapers());
+      })
+      .catch(() => {});
   },
 
   async loadActivationQr() {

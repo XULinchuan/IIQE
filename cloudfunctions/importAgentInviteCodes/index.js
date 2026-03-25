@@ -12,7 +12,7 @@ function normalizeCodes(codes) {
   const map = new Map();
   for (const code of list) {
     const value = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
-    if (/^[A-Z2-9]{8,20}$/.test(value)) {
+    if (/^[A-Z0-9]{8,20}$/.test(value)) {
       map.set(value, true);
     }
   }

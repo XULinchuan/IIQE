@@ -1,4 +1,8 @@
-const { getQuestionsByPaperId, getPaperById } = require('../../../utils/exam-data');
+const {
+  getQuestionsByPaperId,
+  getPaperById,
+  chapterTitleMap,
+} = require('../../../utils/exam-data');
 const { requireLogin } = require('../../../utils/auth');
 const {
   hasPremiumAccessLocal,
@@ -35,6 +39,26 @@ function hasPaperAccess(paper) {
   return hasPremiumAccessLocal() || isAgentLocal();
 }
 
+function inferChapterName(chapter) {
+  const raw = String(chapter || '').trim();
+  if (!raw) return '';
+  if (chapterTitleMap && chapterTitleMap[raw]) return chapterTitleMap[raw];
+  const first = raw.split('.')[0];
+  if (chapterTitleMap && chapterTitleMap[first]) return chapterTitleMap[first];
+  const match = raw.match(/^(\d+)/);
+  if (match) return `第${match[1]}章`;
+  return '第1章';
+}
+
+function withChapterName(question) {
+  if (!question) return question;
+  if (question.chapterName) return question;
+  return {
+    ...question,
+    chapterName: inferChapterName(question.chapter),
+  };
+}
+
 Page({
   data: {
     paperId: '',
@@ -64,15 +88,16 @@ Page({
       this.backToPaper();
       return;
     }
+    let navTitle = (paper && paper.title) || '练习';
+    if (mode === 'wrong') navTitle = '错题集';
+    if (mode === 'favorite') navTitle = '收藏题';
+    wx.setNavigationBarTitle({ title: navTitle });
     if (paper.premium && !await requireLogin('/pages/exam/question/question')) return;
     if (!hasPaperAccess(paper)) {
       wx.showToast({ title: '该试卷需先授权', icon: 'none' });
       this.backToPaper();
       return;
     }
-    let navTitle = (paper && paper.title) || '练习';
-    if (mode === 'wrong') navTitle = '错题集';
-    if (mode === 'favorite') navTitle = '收藏题';
 
     let source = getQuestionsByPaperId(paperId);
     const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
@@ -89,6 +114,8 @@ Page({
       source = source.filter((q) => favSet.has(q.id));
     }
 
+    source = source.map(withChapterName);
+
     if (!source.length) {
       this.setData({
         paperId,
@@ -98,7 +125,6 @@ Page({
         finished: true,
         emptyReason: '当前模式暂无题目',
       });
-      wx.setNavigationBarTitle({ title: navTitle });
       return;
     }
 
@@ -112,7 +138,6 @@ Page({
       isLastQuestion: source.length <= 1,
       isFavorite: (progress.favorites || []).includes(source[0].id),
     });
-    wx.setNavigationBarTitle({ title: navTitle });
   },
 
   async onShow() {
@@ -216,7 +241,7 @@ Page({
     }
 
     const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
-    const next = questions[nextIdx];
+    const next = withChapterName(questions[nextIdx]);
 
     this.setData({
       idx: nextIdx,
@@ -237,13 +262,19 @@ Page({
     progress.correctCount = 0;
     wx.setStorageSync(key, progress);
     wx.showToast({ title: '已清空进度', icon: 'none' });
-    setTimeout(() => {
+    if (this._backTimer) clearTimeout(this._backTimer);
+    this._backTimer = setTimeout(() => {
       this.backToPaper();
+      this._backTimer = null;
     }, 300);
   },
 
   backToPaper() {
     if (this._nextTimer) clearTimeout(this._nextTimer);
+    if (this._backTimer) {
+      clearTimeout(this._backTimer);
+      this._backTimer = null;
+    }
     const pages = getCurrentPages();
     if (pages.length > 1) {
       wx.navigateBack({ delta: 1 });
@@ -261,5 +292,11 @@ Page({
 
   onUnload() {
     if (this._nextTimer) clearTimeout(this._nextTimer);
+    if (this._backTimer) clearTimeout(this._backTimer);
+  },
+
+  onHide() {
+    if (this._nextTimer) clearTimeout(this._nextTimer);
+    if (this._backTimer) clearTimeout(this._backTimer);
   },
 });
