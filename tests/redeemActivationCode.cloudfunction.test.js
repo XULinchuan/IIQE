@@ -23,6 +23,8 @@ function createCloudMock({
   codeDoc = { status: 'unused' },
   throwInTx = false,
   throwErrMsg = '',
+  failRateStartTx = false,
+  failRedeemStartTx = false,
 } = {}) {
   const rateTx = makeRateTx({ limited: rateLimited, fail: rateFail, limit: 10 });
 
@@ -62,11 +64,21 @@ function createCloudMock({
     rollback: jest.fn(async () => ({})),
   };
 
+  const startTransaction = jest.fn();
+  if (failRateStartTx) {
+    startTransaction.mockRejectedValueOnce(new Error('rate tx init fail'));
+  } else {
+    startTransaction.mockResolvedValueOnce(rateTx);
+  }
+  if (failRedeemStartTx) {
+    startTransaction.mockRejectedValueOnce(new Error('redeem tx init fail'));
+  } else {
+    startTransaction.mockResolvedValueOnce(tx);
+  }
+
   const db = {
     serverDate: jest.fn(() => ({ $date: true })),
-    startTransaction: jest.fn()
-      .mockResolvedValueOnce(rateTx)
-      .mockResolvedValueOnce(tx),
+    startTransaction,
     collection: jest.fn(() => ({
       doc: jest.fn(() => ({
         set: jest.fn(async () => ({})),
@@ -95,36 +107,49 @@ describe('cloudfunctions/redeemActivationCode branches', () => {
     const result = await callMain(createCloudMock({ openId: '' }), { code: 'ABCDEFGH' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('请先登录后再试');
+    expect(result.errorCode).toBe('NOT_LOGGED_IN');
   });
 
   test('rejects bad format', async () => {
     const result = await callMain(createCloudMock(), { code: 'abc' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('授权码格式错误');
+    expect(result.errorCode).toBe('INVALID_CODE_FORMAT');
   });
 
   test('returns rate limited', async () => {
     const result = await callMain(createCloudMock({ rateLimited: true }), { code: 'ABCDEFGH' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('请求过于频繁，请稍后再试');
+    expect(result.errorCode).toBe('RATE_LIMIT');
   });
 
   test('returns busy when rate check fails', async () => {
     const result = await callMain(createCloudMock({ rateFail: true }), { code: 'ABCDEFGH' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('系统繁忙，请稍后再试');
+    expect(result.errorCode).toBe('RATE_CHECK_FAILED');
+  });
+
+  test('returns busy when rate transaction init fails', async () => {
+    const result = await callMain(createCloudMock({ failRateStartTx: true }), { code: 'ABCDEFGH' });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe('系统繁忙，请稍后再试');
+    expect(result.errorCode).toBe('RATE_CHECK_FAILED');
   });
 
   test('returns not found when code missing', async () => {
     const result = await callMain(createCloudMock({ codeDoc: null }), { code: 'ABCDEFGH' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('授权码不存在');
+    expect(result.errorCode).toBe('CODE_NOT_FOUND');
   });
 
   test('returns used when code already consumed', async () => {
     const result = await callMain(createCloudMock({ codeDoc: { status: 'used' } }), { code: 'ABCDEFGH' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('授权码已被使用');
+    expect(result.errorCode).toBe('CODE_USED');
   });
 
   test('returns success on valid unused code', async () => {
@@ -145,6 +170,12 @@ describe('cloudfunctions/redeemActivationCode branches', () => {
 
   test('returns generic verify fail on tx exception', async () => {
     const result = await callMain(createCloudMock({ throwInTx: true }), { code: 'ABCDEFGH' });
+    expect(result.ok).toBe(false);
+    expect(result.message).toBe('验证失败，请稍后重试');
+  });
+
+  test('returns verify fail when redeem transaction init fails', async () => {
+    const result = await callMain(createCloudMock({ failRedeemStartTx: true }), { code: 'ABCDEFGH' });
     expect(result.ok).toBe(false);
     expect(result.message).toBe('验证失败，请稍后重试');
   });

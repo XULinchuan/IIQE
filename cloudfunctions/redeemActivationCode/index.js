@@ -12,8 +12,9 @@ async function checkRateLimit(openId, action, limit, windowSec) {
   const now = Date.now();
   const windowStart = now - (now % (windowSec * 1000));
   const key = `rl_${action}_${openId}`;
-  const tx = await db.startTransaction();
+  let tx = null;
   try {
+    tx = await db.startTransaction();
     const res = await tx.collection('iiqe_rate_limits').doc(key).get().catch(() => null);
     const doc = res && res.data;
     const count = doc && doc.windowStart === windowStart ? Number(doc.count || 0) : 0;
@@ -33,7 +34,9 @@ async function checkRateLimit(openId, action, limit, windowSec) {
     await tx.commit();
     return { ok: true, limited: false };
   } catch (err) {
-    try { await tx.rollback(); } catch (e) {}
+    try {
+      if (tx) await tx.rollback();
+    } catch (e) {}
     return { ok: false, limited: false };
   }
 }
@@ -41,36 +44,37 @@ async function checkRateLimit(openId, action, limit, windowSec) {
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) {
-    return { ok: false, message: '请先登录后再试' };
+    return { ok: false, message: '请先登录后再试', errorCode: 'NOT_LOGGED_IN' };
   }
 
   const rate = await checkRateLimit(OPENID, 'redeem_activation', 10, 60);
   if (!rate.ok) {
-    return { ok: false, message: '系统繁忙，请稍后再试' };
+    return { ok: false, message: '系统繁忙，请稍后再试', errorCode: 'RATE_CHECK_FAILED' };
   }
   if (rate.limited) {
-    return { ok: false, message: '请求过于频繁，请稍后再试' };
+    return { ok: false, message: '请求过于频繁，请稍后再试', errorCode: 'RATE_LIMIT' };
   }
 
   const code = normalizeCode(event && event.code);
   if (!/^[A-Z0-9]{8,20}$/.test(code)) {
-    return { ok: false, message: '授权码格式错误' };
+    return { ok: false, message: '授权码格式错误', errorCode: 'INVALID_CODE_FORMAT' };
   }
 
-  const tx = await db.startTransaction();
+  let tx = null;
 
   try {
+    tx = await db.startTransaction();
     const codeRes = await tx.collection('iiqe_activation_codes').doc(code).get();
     const codeDoc = codeRes && codeRes.data;
 
     if (!codeDoc) {
       await tx.rollback();
-      return { ok: false, message: '授权码不存在' };
+      return { ok: false, message: '授权码不存在', errorCode: 'CODE_NOT_FOUND' };
     }
 
     if (codeDoc.status !== 'unused') {
       await tx.rollback();
-      return { ok: false, message: '授权码已被使用' };
+      return { ok: false, message: '授权码已被使用', errorCode: 'CODE_USED' };
     }
 
     await tx.collection('iiqe_activation_codes').doc(code).update({
@@ -98,18 +102,19 @@ exports.main = async (event) => {
     };
   } catch (err) {
     try {
-      await tx.rollback();
+      if (tx) await tx.rollback();
     } catch (rollbackErr) {
       // ignore rollback failure
     }
 
     if (String(err && err.errMsg || '').includes('document.get:fail')) {
-      return { ok: false, message: '授权码不存在' };
+      return { ok: false, message: '授权码不存在', errorCode: 'CODE_NOT_FOUND' };
     }
 
     return {
       ok: false,
       message: '验证失败，请稍后重试',
+      errorCode: 'VERIFY_FAILED',
     };
   }
 };

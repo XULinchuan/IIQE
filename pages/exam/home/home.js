@@ -3,7 +3,7 @@ const {
   hasVolumePremium,
   getVolumeCollectionSummary,
 } = require('../../../utils/volume-collection');
-const { getUserLocal } = require('../../../utils/auth');
+const { getUserLocal, restoreUserFromCloud } = require('../../../utils/auth');
 const {
   hasPremiumAccessLocal,
   refreshPremiumAccess,
@@ -17,6 +17,25 @@ const { safeUserMessage } = require('../../../utils/user-message');
 function pickMessage(result, fallback) {
   const msg = result && typeof result.message === 'string' ? result.message : '';
   return safeUserMessage(msg, fallback);
+}
+
+function pickCloudErrorMessage(err, fallback) {
+  const candidates = [
+    err && err.result && err.result.message,
+  ];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const item = typeof candidates[i] === 'string' ? candidates[i].trim() : '';
+    if (item) return item;
+  }
+  return fallback;
+}
+
+function pickActivationErrorMessage(result, fallback) {
+  const code = result && result.errorCode;
+  if (code === 'RATE_LIMIT') return '请求过于频繁，请1分钟后重试';
+  if (code === 'VERIFY_FAILED') return '系统繁忙，请稍后重试';
+  if (code === 'RATE_CHECK_FAILED') return '系统繁忙，请稍后重试';
+  return pickMessage(result, fallback);
 }
 
 Page({
@@ -37,7 +56,12 @@ Page({
     this.loadPapers();
   },
 
-  onShow() {
+  async onShow() {
+    if (typeof restoreUserFromCloud === 'function' && !getUserLocal()) {
+      try {
+        await restoreUserFromCloud();
+      } catch (err) {}
+    }
     this.loadEntitlement();
   },
 
@@ -365,10 +389,10 @@ Page({
         }, () => this.loadPapers());
         wx.showToast({ title: '授权成功', icon: 'success' });
       } else {
-        wx.showToast({ title: pickMessage(res && res.result, '授权码无效或已使用'), icon: 'none' });
+        wx.showToast({ title: pickActivationErrorMessage(res && res.result, '授权码无效或已使用'), icon: 'none' });
       }
     } catch (err) {
-      wx.showToast({ title: '授权失败，请稍后重试', icon: 'none' });
+      wx.showToast({ title: pickCloudErrorMessage(err, '授权失败，请稍后重试'), icon: 'none' });
     } finally {
       this.setData({ redeeming: false });
     }

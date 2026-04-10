@@ -1,8 +1,10 @@
 const { loadPage, createPageInstance } = require('./pageTestUtils');
 
 function mockDeps({ localPremium = false, localAgent = false, loggedIn = true } = {}) {
+  const restoreUserFromCloud = jest.fn(async () => (loggedIn ? { id: 'u1' } : null));
   jest.doMock('../utils/auth', () => ({
     getUserLocal: jest.fn(() => (loggedIn ? { id: 'u1' } : null)),
+    restoreUserFromCloud,
   }));
   const refreshPremiumAccess = jest.fn(async () => localPremium);
   const refreshMyAgentProfile = jest.fn(async () => ({ isAgent: localAgent, status: localAgent ? 'active' : '' }));
@@ -211,6 +213,11 @@ describe('pages/exam/home/home.js', () => {
     wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: false, message: '授权码不存在' } });
     await page.redeemActivationCode();
     expect(wx.showToast).toHaveBeenCalledWith({ title: '授权码不存在', icon: 'none' });
+
+    page.setData({ activationCode: 'ABCDEFGH' });
+    wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: false, errorCode: 'RATE_LIMIT' } });
+    await page.redeemActivationCode();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请求过于频繁，请1分钟后重试', icon: 'none' });
   });
 
   test('previewActivationQr opens image preview with resolved path', async () => {

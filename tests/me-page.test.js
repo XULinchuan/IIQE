@@ -146,6 +146,17 @@ describe('pages/exam/me/me.js', () => {
     expect(page.data.showActivationDialog).toBe(false);
   });
 
+  test('onLoad with openActivation blocks when not logged in', async () => {
+    mockDeps({ user: null, premium: false });
+    const def = loadPage('../pages/exam/me/me.js');
+    const page = createPageInstance(def);
+
+    await page.onLoad({ openActivation: '1' });
+
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
+    expect(page.data.showActivationDialog).toBe(false);
+  });
+
   test('redeemActivationCode guards on login/code/cloud', async () => {
     mockDeps();
     const def = loadPage('../pages/exam/me/me.js');
@@ -180,6 +191,11 @@ describe('pages/exam/me/me.js', () => {
     wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: false, message: '授权码不存在' } });
     await page.redeemActivationCode();
     expect(wx.showToast).toHaveBeenCalledWith({ title: '授权码不存在', icon: 'none' });
+
+    page.setData({ activationCode: 'ABCDEFGH' });
+    wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: false, errorCode: 'VERIFY_FAILED' } });
+    await page.redeemActivationCode();
+    expect(wx.showToast).toHaveBeenCalledWith({ title: '系统繁忙，请稍后重试', icon: 'none' });
 
     page.setData({ activationCode: 'ABCDEFGH' });
     wx.cloud.callFunction.mockRejectedValueOnce(new Error('boom'));
