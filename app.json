@@ -2,13 +2,28 @@
   "darkmode": true,
   "pages": [
     "pages/exam/home/home",
-    "pages/exam/paper/paper",
-    "pages/exam/volume_collection/volume_collection",
-    "pages/exam/question/question",
     "pages/exam/me/me",
-    "pages/exam/records/records",
     "pages/agent/qrcode/qrcode"
   ],
+  "subPackages": [
+    {
+      "root": "pkg-exam",
+      "pages": [
+        "paper/paper",
+        "volume_collection/volume_collection",
+        "question/question",
+        "records/records"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/exam/home/home": {
+      "network": "all",
+      "packages": [
+        "pkg-exam"
+      ]
+    }
+  },
   "themeLocation": "theme.json",
   "window": {
     "navigationBarTitleText": "IIQE 题库",

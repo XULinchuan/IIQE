@@ -2,18 +2,25 @@ const {
   getQuestionsByPaperId,
   getPaperById,
   chapterTitleMap,
-} = require('../../../utils/exam-data');
+  isDynamicMockPaperId,
+  getActiveDynamicMockSessionId,
+  getDynamicMockSessionState,
+  updateDynamicMockRemainingMs,
+  markDynamicMockSessionSubmitted,
+  prepareDynamicMockSession,
+} = require('../utils/exam-data');
 const {
   getVolumeCollectionQuestions,
   getVolumePapers,
-} = require('../../../utils/volume-collection');
-const { requireLogin } = require('../../../utils/auth');
+} = require('../utils/volume-collection');
+const { requireLogin } = require('../../utils/auth');
 const {
   hasPremiumAccessLocal,
   isAgentLocal,
   refreshPremiumAccess,
   refreshMyAgentProfile,
-} = require('../../../utils/entitlement');
+} = require('../../utils/entitlement');
+const { normalizeChapterRef, getChapterGroupKey } = require('../utils/chapter-normalize');
 
 function getProgressKey(paperId) {
   return `iiqe_progress_${paperId}`;
@@ -44,11 +51,12 @@ function hasPaperAccess(paper) {
 }
 
 function inferChapterName(chapter) {
-  const raw = String(chapter || '').trim();
+  const raw = normalizeChapterRef(chapter);
   if (!raw) return '';
   if (chapterTitleMap && chapterTitleMap[raw]) return chapterTitleMap[raw];
-  const first = raw.split('.')[0];
+  const first = getChapterGroupKey(raw);
   if (chapterTitleMap && chapterTitleMap[first]) return chapterTitleMap[first];
+  if (first && !/^\d+$/.test(first)) return first;
   const match = raw.match(/^(\d+)/);
   if (match) return `第${match[1]}章`;
   return '第1章';
@@ -100,6 +108,10 @@ function isWrongCollectionMode(mode) {
   return mode === 'wrong' || mode === 'volume_wrong';
 }
 
+function isMockExamMode(mode) {
+  return mode !== 'wrong' && mode !== 'favorite' && mode !== 'volume_wrong' && mode !== 'volume_favorite';
+}
+
 function getVolumeCollectionTypeByMode(mode) {
   return mode === 'volume_favorite' ? 'favorite' : 'wrong';
 }
@@ -124,12 +136,17 @@ function buildScopeKey({
   const safeVolumeId = String(volumeId || '');
   const safeMode = String(mode || 'chapter');
   const safeChapterNo = String(chapterNo || '');
+  const isDynamic = typeof isDynamicMockPaperId === 'function' && isDynamicMockPaperId(safePaperId);
+  const dynamicSessionId = isDynamic && typeof getActiveDynamicMockSessionId === 'function'
+    ? String(getActiveDynamicMockSessionId(safePaperId) || '')
+    : '';
+  const paperScopeId = dynamicSessionId ? `${safePaperId}:session:${dynamicSessionId}` : safePaperId;
   if (safeMode === 'volume_wrong' || safeMode === 'volume_favorite') {
     const type = safeMode === 'volume_favorite' ? 'favorite' : 'wrong';
     return `volume:${safeVolumeId}:${type}:${safeChapterNo || 'all'}`;
   }
-  if (safeMode === 'chapter') return `paper:${safePaperId}:chapter:${safeChapterNo}`;
-  return `paper:${safePaperId}:${safeMode}`;
+  if (safeMode === 'chapter') return `paper:${paperScopeId}:chapter:${safeChapterNo}`;
+  return `paper:${paperScopeId}:${safeMode}`;
 }
 
 function getCursorStorageKey(scopeKey) {
@@ -209,9 +226,10 @@ function getRandomModeSource(source, scopeKey) {
 }
 
 function matchesChapterForMode(chapter, chapterNo) {
-  const target = String(chapterNo || '');
+  const target = normalizeChapterRef(chapterNo);
   if (!target || target === 'all') return true;
-  const raw = String(chapter || '');
+  const raw = normalizeChapterRef(chapter);
+  if (getChapterGroupKey(raw) === target) return true;
   return (
     raw === target
     || raw.startsWith(`${target}.`)
@@ -223,8 +241,46 @@ function getSourcePaperIdForQuestion(question, fallbackPaperId) {
   return (question && question.sourcePaperId) || fallbackPaperId || '';
 }
 
+function getProgressPaperId(question, fallbackPaperId, isDynamicMockPaper) {
+  if (isDynamicMockPaper && fallbackPaperId) return String(fallbackPaperId);
+  return getSourcePaperIdForQuestion(question, fallbackPaperId);
+}
+
 function getQuestionIdForProgress(question) {
   return question && question.id;
+}
+
+function formatRemainingMs(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(Number(ms || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function getPassScore(total) {
+  return Math.ceil(Math.max(0, Number(total || 0)) * 0.7);
+}
+
+function buildMockExamSummary(paperId) {
+  const questions = getQuestionsByPaperId(paperId);
+  const progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
+  const answers = (progress && progress.answers) || {};
+  let answered = 0;
+  let correct = 0;
+  questions.forEach((q) => {
+    if (!Object.prototype.hasOwnProperty.call(answers, q.id)) return;
+    answered += 1;
+    if (Number(answers[q.id]) === q.answer) correct += 1;
+  });
+  const total = questions.length;
+  const passScore = getPassScore(total);
+  return {
+    total,
+    answered,
+    correct,
+    passScore,
+    passed: correct >= passScore,
+  };
 }
 
 Page({
@@ -247,6 +303,11 @@ Page({
     emptyReason: '',
     navTitle: '',
     disableCursorPersist: false,
+    isDynamicMockPaper: false,
+    showExamTimerControls: false,
+    examRemainingMs: 0,
+    examTimerText: '00:00',
+    examSubmitted: false,
   },
 
   async onLoad(options) {
@@ -257,6 +318,8 @@ Page({
     let navTitle = '练习';
     let source = [];
     let progress = null;
+    const dynamicMockPaper = !!(paperId && typeof isDynamicMockPaperId === 'function' && isDynamicMockPaperId(paperId));
+    let examState = null;
     const scopeKey = buildScopeKey({
       paperId,
       volumeId,
@@ -286,7 +349,7 @@ Page({
       if (mode === 'wrong') navTitle = '错题集';
       if (mode === 'favorite') navTitle = '收藏题';
       wx.setNavigationBarTitle({ title: navTitle });
-      if (paper.premium && !await requireLogin('/pages/exam/question/question')) return;
+      if (paper.premium && !await requireLogin('/pkg-exam/question/question')) return;
       if (!hasPaperAccess(paper)) {
         wx.showToast({ title: '该试卷需先授权', icon: 'none' });
         this.backToPaper();
@@ -295,6 +358,9 @@ Page({
 
       source = getQuestionsByPaperId(paperId);
       progress = wx.getStorageSync(getProgressKey(paperId)) || initProgress();
+      if (dynamicMockPaper && isMockExamMode(mode) && typeof getDynamicMockSessionState === 'function') {
+        examState = getDynamicMockSessionState(paperId);
+      }
 
       if (mode === 'chapter') {
         source = source.filter((q) => matchesChapterForMode(q.chapter, chapterNo));
@@ -322,6 +388,11 @@ Page({
         finished: true,
         emptyReason: '当前模式暂无题目',
         disableCursorPersist: false,
+        isDynamicMockPaper: dynamicMockPaper,
+        showExamTimerControls: dynamicMockPaper && isMockExamMode(mode),
+        examRemainingMs: examState ? Number(examState.remainingMs || 0) : 0,
+        examTimerText: formatRemainingMs(examState ? Number(examState.remainingMs || 0) : 0),
+        examSubmitted: false,
       });
       return;
     }
@@ -332,7 +403,7 @@ Page({
     const uiState = shouldResetAnswerState(mode)
       ? { selected: -1, submitted: false, isCurrentCorrect: false }
       : getQuestionUiState(first, progress);
-    const firstSourcePaperId = getSourcePaperIdForQuestion(first, paperId);
+    const firstSourcePaperId = getProgressPaperId(first, paperId, dynamicMockPaper);
     const firstQuestionId = getQuestionIdForProgress(first);
     const firstProgress = wx.getStorageSync(getProgressKey(firstSourcePaperId)) || initProgress();
 
@@ -350,9 +421,18 @@ Page({
       isLastQuestion: startIndex === source.length - 1,
       isFavorite: (firstProgress.favorites || []).includes(firstQuestionId),
       disableCursorPersist: false,
+      isDynamicMockPaper: dynamicMockPaper,
+      showExamTimerControls: dynamicMockPaper && isMockExamMode(mode),
+      examRemainingMs: examState ? Number(examState.remainingMs || 0) : 0,
+      examTimerText: formatRemainingMs(examState ? Number(examState.remainingMs || 0) : 0),
+      examSubmitted: false,
       ...uiState,
     });
     saveCursor(scopeKey, startIndex, first.id);
+
+    if (dynamicMockPaper && isMockExamMode(mode)) {
+      this.startExamTimer();
+    }
   },
 
   async onShow() {
@@ -364,9 +444,16 @@ Page({
 
     if (!paperId) return;
     const paper = getPaperById(paperId);
-    if (!paper || !paper.premium) return;
-    if (!await requireLogin('/pages/exam/question/question')) return;
-    if (hasPaperAccess(paper)) return;
+    if (!paper) return;
+    if (!paper.premium) {
+      if (this.data.isDynamicMockPaper && isMockExamMode(mode)) this.startExamTimer();
+      return;
+    }
+    if (!await requireLogin('/pkg-exam/question/question')) return;
+    if (hasPaperAccess(paper)) {
+      if (this.data.isDynamicMockPaper && isMockExamMode(mode)) this.startExamTimer();
+      return;
+    }
 
     try {
       const [premium, profile] = await Promise.all([
@@ -374,11 +461,111 @@ Page({
         refreshMyAgentProfile(),
       ]);
       const isAgent = !!(profile && profile.isAgent && profile.status !== 'disabled');
-      if (premium || isAgent) return;
+      if (premium || isAgent) {
+        if (this.data.isDynamicMockPaper && isMockExamMode(mode)) this.startExamTimer();
+        return;
+      }
     } catch (err) {}
 
     wx.showToast({ title: '授权状态已失效', icon: 'none' });
     this.backToPaper();
+  },
+
+  startExamTimer() {
+    const { paperId, isDynamicMockPaper, examSubmitted } = this.data;
+    if (!isDynamicMockPaper || !paperId || examSubmitted) return;
+    this.stopExamTimer({ persist: true });
+    let remainingMs = Number(this.data.examRemainingMs || 0);
+    if (remainingMs <= 0) {
+      this.forceSubmitByTimeout();
+      return;
+    }
+    this._examLastTickAt = Date.now();
+    this._examTimer = setInterval(() => {
+      const now = Date.now();
+      const elapsed = Math.max(0, now - (this._examLastTickAt || now));
+      this._examLastTickAt = now;
+      remainingMs = Math.max(0, remainingMs - elapsed);
+      this.setData({
+        examRemainingMs: remainingMs,
+        examTimerText: formatRemainingMs(remainingMs),
+      });
+      if (typeof updateDynamicMockRemainingMs === 'function') {
+        updateDynamicMockRemainingMs(paperId, remainingMs);
+      }
+      if (remainingMs <= 0) {
+        this.forceSubmitByTimeout();
+      }
+    }, 1000);
+  },
+
+  stopExamTimer({ persist = false } = {}) {
+    const hadTimer = !!this._examTimer;
+    if (this._examTimer) {
+      clearInterval(this._examTimer);
+      this._examTimer = null;
+    }
+    if (!persist || !hadTimer) return;
+    const { isDynamicMockPaper, paperId, examSubmitted } = this.data;
+    if (!isDynamicMockPaper || !paperId || examSubmitted) return;
+    const now = Date.now();
+    const elapsed = Math.max(0, now - (this._examLastTickAt || now));
+    const remainingMs = Math.max(0, Number(this.data.examRemainingMs || 0) - elapsed);
+    this._examLastTickAt = now;
+    this.setData({
+      examRemainingMs: remainingMs,
+      examTimerText: formatRemainingMs(remainingMs),
+    });
+    if (typeof updateDynamicMockRemainingMs === 'function') {
+      updateDynamicMockRemainingMs(paperId, remainingMs);
+    }
+  },
+
+  submitDynamicMockPaper() {
+    const { isDynamicMockPaper } = this.data;
+    if (!isDynamicMockPaper) return;
+    wx.showModal({
+      title: '确认交卷',
+      content: '交卷后本次模拟卷结束，下次进入将刷新新试卷。',
+      success: (res) => {
+        if (!res || !res.confirm) return;
+        this.finishDynamicMockPaper('manual');
+      },
+    });
+  },
+
+  forceSubmitByTimeout() {
+    this.finishDynamicMockPaper('timeout');
+  },
+
+  finishDynamicMockPaper(reason) {
+    const { isDynamicMockPaper, paperId, examSubmitted } = this.data;
+    if (!isDynamicMockPaper || !paperId || examSubmitted) return;
+    if (reason === 'timeout') {
+      this.setData({ examRemainingMs: 0, examTimerText: '00:00' });
+      if (typeof updateDynamicMockRemainingMs === 'function') {
+        updateDynamicMockRemainingMs(paperId, 0);
+      }
+    }
+    this.stopExamTimer({ persist: true });
+    if (typeof markDynamicMockSessionSubmitted === 'function') {
+      markDynamicMockSessionSubmitted(paperId, reason || 'manual');
+    }
+    const summary = buildMockExamSummary(paperId);
+    this.setData({
+      examSubmitted: true,
+      disableCursorPersist: true,
+    });
+    const prefix = reason === 'timeout' ? '时间到，已自动交卷。' : '已交卷。';
+    const resultText = summary.passed ? '已通过' : '未通过';
+    wx.showModal({
+      title: summary.passed ? '交卷结果：通过' : '交卷结果：未通过',
+      content: `${prefix}答对 ${summary.correct}/${summary.total} 题，及格线 ${summary.passScore} 题（70%），${resultText}。`,
+      showCancel: false,
+      success: () => {
+        this.backToPaper();
+      },
+    });
   },
 
   chooseOption(e) {
@@ -390,9 +577,9 @@ Page({
   },
 
   toggleFavorite() {
-    const { paperId, current } = this.data;
+    const { paperId, current, isDynamicMockPaper } = this.data;
     if (!current) return;
-    const sourcePaperId = getSourcePaperIdForQuestion(current, paperId);
+    const sourcePaperId = getProgressPaperId(current, paperId, isDynamicMockPaper);
     if (!sourcePaperId) return;
     const questionId = getQuestionIdForProgress(current);
     const progress = wx.getStorageSync(getProgressKey(sourcePaperId)) || initProgress();
@@ -414,10 +601,11 @@ Page({
       isLastQuestion,
       mode,
       idx,
+      isDynamicMockPaper,
     } = this.data;
     if (!current) return;
 
-    const sourcePaperId = getSourcePaperIdForQuestion(current, paperId);
+    const sourcePaperId = getProgressPaperId(current, paperId, isDynamicMockPaper);
     const questionId = getQuestionIdForProgress(current);
     if (!sourcePaperId || !questionId) return;
 
@@ -514,7 +702,7 @@ Page({
     }
 
     const next = withChapterName(source[targetIdx]);
-    const sourcePaperId = getSourcePaperIdForQuestion(next, paperId);
+    const sourcePaperId = getProgressPaperId(next, paperId, this.data.isDynamicMockPaper);
     const questionId = getQuestionIdForProgress(next);
     const progress = wx.getStorageSync(getProgressKey(sourcePaperId)) || initProgress();
     const uiState = shouldResetAnswerState(mode)
@@ -555,6 +743,7 @@ Page({
   resetPaperProgress() {
     const { mode, paperId, volumeId } = this.data;
     const scopeKey = resolveScopeKey(this.data);
+    this.stopExamTimer({ persist: true });
     if (isVolumeMode(mode)) {
       const papers = getVolumePapers(volumeId);
       papers.forEach((paper) => {
@@ -571,6 +760,9 @@ Page({
       progress.answers = {};
       progress.correctCount = 0;
       wx.setStorageSync(key, progress);
+      if (this.data.isDynamicMockPaper && typeof prepareDynamicMockSession === 'function') {
+        prepareDynamicMockSession(paperId, { force: true });
+      }
     }
     clearCursor(scopeKey);
     if (mode === 'random') {
@@ -599,7 +791,7 @@ Page({
       this.safeRedirectToHome();
       return;
     }
-    const url = `/pages/exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(volumeId)}&type=${type || 'wrong'}`;
+    const url = `/pkg-exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(volumeId)}&type=${type || 'wrong'}`;
     const pages = getCurrentPages();
     if (pages.length > 1) {
       wx.navigateBack({ delta: 1 });
@@ -609,6 +801,7 @@ Page({
   },
 
   backToPaper() {
+    this.stopExamTimer({ persist: true });
     this.persistCursor();
     if (this._nextTimer) clearTimeout(this._nextTimer);
     if (this._backTimer) {
@@ -624,13 +817,13 @@ Page({
     if (isVolumeMode(mode) && volumeId) {
       const type = getVolumeCollectionTypeByMode(mode);
       wx.redirectTo({
-        url: `/pages/exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(volumeId)}&type=${type}`,
+        url: `/pkg-exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(volumeId)}&type=${type}`,
       });
       return;
     }
     if (paperId) {
       wx.redirectTo({
-        url: `/pages/exam/paper/paper?paperId=${paperId}`,
+        url: `/pkg-exam/paper/paper?paperId=${paperId}`,
       });
       return;
     }
@@ -638,12 +831,14 @@ Page({
   },
 
   onUnload() {
+    this.stopExamTimer({ persist: true });
     this.persistCursor();
     if (this._nextTimer) clearTimeout(this._nextTimer);
     if (this._backTimer) clearTimeout(this._backTimer);
   },
 
   onHide() {
+    this.stopExamTimer({ persist: true });
     this.persistCursor();
     if (this._nextTimer) clearTimeout(this._nextTimer);
     if (this._backTimer) clearTimeout(this._backTimer);

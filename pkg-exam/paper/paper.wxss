@@ -58,6 +58,13 @@
   margin-bottom: 18rpx;
 }
 
+.pass-tip {
+  margin-top: -8rpx;
+  margin-bottom: 14rpx;
+  font-size: 30rpx;
+  color: #b45309;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

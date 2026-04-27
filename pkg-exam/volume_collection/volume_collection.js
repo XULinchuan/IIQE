@@ -1,4 +1,4 @@
-const { getVolumeCollectionSummary } = require('../../../utils/volume-collection');
+const { getVolumeCollectionSummary } = require('../utils/volume-collection');
 
 function isValidType(type) {
   return type === 'wrong' || type === 'favorite';
@@ -76,7 +76,7 @@ Page({
   openQuestion(chapterNo) {
     const { volumeId, type } = this.data;
     const mode = getModeByType(type);
-    const url = `/pages/exam/question/question?mode=${mode}&volumeId=${encodeURIComponent(volumeId)}&chapterNo=${encodeURIComponent(chapterNo)}`;
+    const url = `/pkg-exam/question/question?mode=${mode}&volumeId=${encodeURIComponent(volumeId)}&chapterNo=${encodeURIComponent(chapterNo)}`;
     wx.navigateTo({
       url,
       fail: () => {

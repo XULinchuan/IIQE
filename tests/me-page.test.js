@@ -306,7 +306,7 @@ describe('pages/exam/me/me.js', () => {
     page.setData({ isLoggedIn: true });
     page.openRecords();
     expect(wx.navigateTo).toHaveBeenCalledWith(
-      expect.objectContaining({ url: '/pages/exam/records/records' }),
+      expect.objectContaining({ url: '/pkg-exam/records/records' }),
     );
   });
 

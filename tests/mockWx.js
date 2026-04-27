@@ -10,6 +10,7 @@ function createMockWx() {
       storage.delete(key);
     }),
     showToast: jest.fn(),
+    showModal: jest.fn(),
     reLaunch: jest.fn(),
     redirectTo: jest.fn(),
     navigateTo: jest.fn(),

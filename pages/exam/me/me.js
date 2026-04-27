@@ -595,10 +595,10 @@ Page({
       return;
     }
     wx.navigateTo({
-      url: '/pages/exam/records/records',
+      url: '/pkg-exam/records/records',
       fail: () => {
         wx.redirectTo({
-          url: '/pages/exam/records/records',
+          url: '/pkg-exam/records/records',
         });
       },
     });

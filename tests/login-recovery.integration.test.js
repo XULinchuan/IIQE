@@ -31,7 +31,7 @@ describe('integration: login recovery across pages', () => {
       getActivationQrLocal: jest.fn(() => '/assets/wechat_qr.jpg'),
       refreshActivationQrByUser: jest.fn(async () => '/assets/wechat_qr.jpg'),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../utils/exam-catalog', () => ({
       getPapersByType: jest.fn(() => [{ id: 'p1', premium: false }]),
     }));
 
@@ -41,31 +41,42 @@ describe('integration: login recovery across pages', () => {
     await page.onShow();
 
     expect(wx.reLaunch).not.toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
-    expect(wx.getStorageSync('iiqe_user_profile')).toBeUndefined();
+    expect(wx.getStorageSync('iiqe_user_profile')).toEqual(expect.objectContaining({ id: 'openid_auto' }));
     expect(page.data.papers).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'p1', premium: false, unlocked: true }),
     ]));
   });
 
-  test('blocked page sets redirect and login page consumes redirect after login', async () => {
+  test('guest entering subpackage paper page is redirected to login and returns to subpackage page after login', async () => {
     wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: true, user: null } });
 
-    const { requireLogin } = require('../utils/auth');
-    const allow = await requireLogin('/pages/exam/paper/paper?paperId=p_1');
-    expect(allow).toBe(false);
-    expect(wx.reLaunch).toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
-    expect(wx.getStorageSync('iiqe_login_redirect')).toBe('/pages/exam/paper/paper?paperId=p_1');
-
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
+      getPaperById: jest.fn((id) => (id ? { id, title: 'Paper', premium: true } : null)),
+      getQuestionsByPaperId: jest.fn(() => []),
+      chapterTitleMap: {},
+    }));
+    jest.doMock('../pkg-exam/utils/volume-collection', () => ({
+      getChapterNo: jest.fn(() => '1'),
+      compareChapterNo: jest.fn(() => 0),
+    }));
     jest.doMock('../utils/entitlement', () => ({
       hasPremiumAccessLocal: jest.fn(() => false),
       setPremiumAccess: jest.fn(),
       refreshPremiumAccess: jest.fn(async () => false),
       setAgentProfile: jest.fn(),
       getAgentProfileLocal: jest.fn(() => null),
+      isAgentLocal: jest.fn(() => false),
       refreshMyAgentProfile: jest.fn(async () => ({ isAgent: false, status: '' })),
       getActivationQrLocal: jest.fn(() => '/assets/wechat_qr.jpg'),
       refreshActivationQrByUser: jest.fn(async () => '/assets/wechat_qr.jpg'),
     }));
+
+    const paperDef = loadPage('../pkg-exam/paper/paper.js');
+    const paperPage = createPageInstance(paperDef);
+    await paperPage.onLoad({ paperId: 'p_1' });
+
+    expect(wx.reLaunch).toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
+    expect(wx.getStorageSync('iiqe_login_redirect')).toBe('/pkg-exam/paper/paper?paperId=p_1');
 
     const meDef = loadPage('../pages/exam/me/me.js');
     const mePage = createPageInstance(meDef);
@@ -95,7 +106,7 @@ describe('integration: login recovery across pages', () => {
     mePage.loginOrRegister();
     await new Promise((resolve) => setTimeout(resolve, 350));
 
-    expect(wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({ url: '/pages/exam/paper/paper?paperId=p_1' }));
+    expect(wx.redirectTo).toHaveBeenCalledWith(expect.objectContaining({ url: '/pkg-exam/paper/paper?paperId=p_1' }));
     expect(wx.getStorageSync('iiqe_login_redirect')).toBeUndefined();
     expect(wx.getStorageSync('iiqe_user_profile')).toEqual(expect.objectContaining({ id: 'openid_2' }));
   });

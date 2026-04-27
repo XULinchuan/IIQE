@@ -1,7 +1,7 @@
 const { loadPage, createPageInstance } = require('./pageTestUtils');
 
 function mockDeps() {
-  jest.doMock('../utils/volume-collection', () => ({
+  jest.doMock('../pkg-exam/utils/volume-collection', () => ({
     getVolumeCollectionSummary: jest.fn(() => ({
       total: 6,
       answered: 2,
@@ -12,10 +12,10 @@ function mockDeps() {
   }));
 }
 
-describe('pages/exam/volume_collection/volume_collection.js', () => {
+describe('pkg-exam/volume_collection/volume_collection.js', () => {
   test('onLoad sets nav title and stats', async () => {
     mockDeps();
-    const def = loadPage('../pages/exam/volume_collection/volume_collection.js');
+    const def = loadPage('../pkg-exam/volume_collection/volume_collection.js');
     const page = createPageInstance(def);
 
     await page.onLoad({ volumeId: encodeURIComponent('卷一'), type: 'wrong' });
@@ -27,20 +27,20 @@ describe('pages/exam/volume_collection/volume_collection.js', () => {
 
   test('startChapter opens volume question mode', async () => {
     mockDeps();
-    const def = loadPage('../pages/exam/volume_collection/volume_collection.js');
+    const def = loadPage('../pkg-exam/volume_collection/volume_collection.js');
     const page = createPageInstance(def);
     page.setData({ volumeId: '卷五', type: 'favorite' });
 
     await page.startChapter({ currentTarget: { dataset: { chapterNo: '2' } } });
 
     expect(wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/exam/question/question?mode=volume_favorite&volumeId=%E5%8D%B7%E4%BA%94&chapterNo=2',
+      url: '/pkg-exam/question/question?mode=volume_favorite&volumeId=%E5%8D%B7%E4%BA%94&chapterNo=2',
     }));
   });
 
   test('onLoad no longer enforces entitlement for volume collection', async () => {
     mockDeps();
-    const def = loadPage('../pages/exam/volume_collection/volume_collection.js');
+    const def = loadPage('../pkg-exam/volume_collection/volume_collection.js');
     const page = createPageInstance(def);
 
     await page.onLoad({ volumeId: encodeURIComponent('卷一'), type: 'wrong' });

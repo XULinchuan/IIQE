@@ -1,8 +1,4 @@
-const { getPapersByType } = require('../../../utils/exam-data');
-const {
-  hasVolumePremium,
-  getVolumeCollectionSummary,
-} = require('../../../utils/volume-collection');
+const { getPapersByType } = require('../../../utils/exam-catalog');
 const { getUserLocal, restoreUserFromCloud } = require('../../../utils/auth');
 const {
   hasPremiumAccessLocal,
@@ -38,9 +34,24 @@ function pickActivationErrorMessage(result, fallback) {
   return pickMessage(result, fallback);
 }
 
+function getProgressKey(paperId) {
+  return `iiqe_progress_${paperId}`;
+}
+
+function getVolumeCollectionCountByType(volumeId, collectionType) {
+  const papers = getPapersByType(volumeId);
+  let total = 0;
+  papers.forEach((paper) => {
+    const progress = wx.getStorageSync(getProgressKey(paper.id)) || { wrongIds: [], favorites: [] };
+    const ids = collectionType === 'favorite' ? (progress.favorites || []) : (progress.wrongIds || []);
+    total += ids.length;
+  });
+  return total;
+}
+
 Page({
   data: {
-    typeTabs: ['卷三', '卷一', '卷二', '卷五'],
+    typeTabs: ['卷三', '卷一', '卷二', '卷四', '卷五'],
     activeType: '卷三',
     papers: [],
     hasPremiumAccess: false,
@@ -77,7 +88,7 @@ Page({
     const card = (this.data.papers || []).find((p) => p.id === id);
     if (!card) return;
     if (card.cardType === 'volume') {
-      const url = `/pages/exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(card.volumeId)}&type=${card.collectionType}`;
+      const url = `/pkg-exam/volume_collection/volume_collection?volumeId=${encodeURIComponent(card.volumeId)}&type=${card.collectionType}`;
       wx.navigateTo({
         url,
         fail: () => {
@@ -126,10 +137,10 @@ Page({
       }
     }
     wx.navigateTo({
-      url: `/pages/exam/paper/paper?paperId=${card.id}`,
+      url: `/pkg-exam/paper/paper?paperId=${card.id}`,
       fail: () => {
         wx.redirectTo({
-          url: `/pages/exam/paper/paper?paperId=${card.id}`,
+          url: `/pkg-exam/paper/paper?paperId=${card.id}`,
         });
       },
     });
@@ -152,10 +163,10 @@ Page({
       ...paper,
       unlocked: !paper.premium || hasPremiumAccess || isAgent,
     }));
-    const volumePremium = hasVolumePremium(activeType);
+    const volumePremium = papers.some((paper) => !!paper.premium);
     const volumeUnlocked = !volumePremium || hasPremiumAccess || isAgent;
-    const wrongSummary = getVolumeCollectionSummary(activeType, 'wrong');
-    const favoriteSummary = getVolumeCollectionSummary(activeType, 'favorite');
+    const wrongTotal = getVolumeCollectionCountByType(activeType, 'wrong');
+    const favoriteTotal = getVolumeCollectionCountByType(activeType, 'favorite');
     const volumeCards = [
       {
         id: `volume-${activeType}-wrong`,
@@ -163,7 +174,7 @@ Page({
         volumeId: activeType,
         collectionType: 'wrong',
         title: `${activeType}错题集（整卷）`,
-        total: wrongSummary.total,
+        total: wrongTotal,
         premium: volumePremium,
         unlocked: volumeUnlocked,
       },
@@ -173,7 +184,7 @@ Page({
         volumeId: activeType,
         collectionType: 'favorite',
         title: `${activeType}收藏集（整卷）`,
-        total: favoriteSummary.total,
+        total: favoriteTotal,
         premium: volumePremium,
         unlocked: volumeUnlocked,
       },

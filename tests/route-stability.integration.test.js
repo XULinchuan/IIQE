@@ -17,7 +17,7 @@ describe('integration: route stability', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(),
       getQuestionsByPaperId: jest.fn(() => []),
       chapterTitleMap: {},
@@ -25,7 +25,7 @@ describe('integration: route stability', () => {
 
     global.getCurrentPages = () => [{}, {}];
 
-    const def = loadPage('../pages/exam/paper/paper.js');
+    const def = loadPage('../pkg-exam/paper/paper.js');
     const page = createPageInstance(def);
     page.safeBack('/pages/exam/home/home');
 
@@ -41,7 +41,7 @@ describe('integration: route stability', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(),
       getQuestionsByPaperId: jest.fn(() => []),
       chapterTitleMap: {},
@@ -49,7 +49,7 @@ describe('integration: route stability', () => {
 
     global.getCurrentPages = () => [{}];
 
-    const def = loadPage('../pages/exam/paper/paper.js');
+    const def = loadPage('../pkg-exam/paper/paper.js');
     const page = createPageInstance(def);
     page.safeBack('/pages/exam/home/home');
 
@@ -64,21 +64,21 @@ describe('integration: route stability', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(),
       getQuestionsByPaperId: jest.fn(() => []),
     }));
 
     global.getCurrentPages = () => [{}];
 
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
     page.data.paperId = 'p_202602';
 
     page.backToPaper();
 
     expect(wx.redirectTo).toHaveBeenCalledWith({
-      url: '/pages/exam/paper/paper?paperId=p_202602',
+      url: '/pkg-exam/paper/paper?paperId=p_202602',
     });
   });
 
@@ -90,14 +90,14 @@ describe('integration: route stability', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(),
       getQuestionsByPaperId: jest.fn(() => []),
     }));
 
     global.getCurrentPages = () => [{}];
 
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
 
     page.backToPaper();
@@ -116,7 +116,7 @@ describe('integration: route stability', () => {
       getActivationQrLocal: jest.fn(() => '/assets/wechat_qr.jpg'),
       refreshActivationQrByUser: jest.fn(async () => '/assets/wechat_qr.jpg'),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPapersByType: jest.fn(() => [{ id: 'p1', premium: false }]),
     }));
 
@@ -128,6 +128,6 @@ describe('integration: route stability', () => {
 
     await page.goPaper({ currentTarget: { dataset: { id: 'p1' } } });
 
-    expect(wx.redirectTo).toHaveBeenCalledWith({ url: '/pages/exam/paper/paper?paperId=p1' });
+    expect(wx.redirectTo).toHaveBeenCalledWith({ url: '/pkg-exam/paper/paper?paperId=p1' });
   });
 });

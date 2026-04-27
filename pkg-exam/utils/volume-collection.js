@@ -3,6 +3,7 @@ const {
   getQuestionsByPaperId,
   chapterTitleMap,
 } = require('./exam-data');
+const { normalizeChapterRef, getChapterGroupKey } = require('./chapter-normalize');
 
 function getProgressKey(paperId) {
   return `iiqe_progress_${paperId}`;
@@ -30,7 +31,7 @@ function hasVolumePremium(volumeId) {
 }
 
 function getChapterNo(chapter) {
-  return String(chapter || '').split('.')[0] || '';
+  return getChapterGroupKey(chapter);
 }
 
 function chapterSortKey(chapterNo) {
@@ -60,9 +61,10 @@ function questionNoSortValue(no) {
 }
 
 function matchChapter(chapter, chapterNo) {
-  const raw = String(chapter || '');
-  const target = String(chapterNo || '');
+  const target = normalizeChapterRef(chapterNo);
   if (!target || target === 'all') return true;
+  const raw = normalizeChapterRef(chapter);
+  if (getChapterNo(raw) === target) return true;
   return (
     raw === target
     || raw.startsWith(`${target}.`)
@@ -127,7 +129,7 @@ function getVolumeCollectionSummary(volumeId, type) {
     if (!chapterMap[chapterNo]) {
       chapterMap[chapterNo] = {
         chapterNo,
-        title: chapterTitleMap[chapterNo] || `第${chapterNo}章`,
+        title: chapterTitleMap[chapterNo] || (/^\d+$/.test(chapterNo) ? `第${chapterNo}章` : (chapterNo || '未分类')),
         total: 0,
         answered: 0,
         correct: 0,
@@ -171,4 +173,3 @@ module.exports = {
   getChapterNo,
   compareChapterNo,
 };
-

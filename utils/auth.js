@@ -19,7 +19,7 @@ function normalizeUser(raw) {
 function normalizeRedirectUrl(url) {
   const text = String(url || '').trim();
   if (!text.startsWith('/')) return '';
-  if (text.startsWith('/pages/exam/') || text.startsWith('/pages/agent/')) {
+  if (text.startsWith('/pages/exam/') || text.startsWith('/pages/agent/') || text.startsWith('/pkg-exam/')) {
     return text;
   }
   return '';

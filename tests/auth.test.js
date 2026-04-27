@@ -9,6 +9,11 @@ describe('utils/auth', () => {
     expect(normalizeRedirectUrl('/pages/agent/qrcode/qrcode')).toBe('/pages/agent/qrcode/qrcode');
   });
 
+  test('normalizeRedirectUrl allows pkg-exam page', () => {
+    const { normalizeRedirectUrl } = require('../utils/auth');
+    expect(normalizeRedirectUrl('/pkg-exam/paper/paper?paperId=p_1')).toBe('/pkg-exam/paper/paper?paperId=p_1');
+  });
+
   test('normalizeRedirectUrl blocks invalid path', () => {
     const { normalizeRedirectUrl } = require('../utils/auth');
     expect(normalizeRedirectUrl('https://evil.com')).toBe('');
@@ -52,10 +57,10 @@ describe('utils/auth', () => {
     wx.cloud.callFunction.mockResolvedValueOnce({ result: { ok: true, user: null } });
 
     const { requireLogin } = require('../utils/auth');
-    const ok = await requireLogin('/pages/exam/paper/paper?paperId=p_1');
+    const ok = await requireLogin('/pkg-exam/paper/paper?paperId=p_1');
 
     expect(ok).toBe(false);
-    expect(wx.setStorageSync).toHaveBeenCalledWith('iiqe_login_redirect', '/pages/exam/paper/paper?paperId=p_1');
+    expect(wx.setStorageSync).toHaveBeenCalledWith('iiqe_login_redirect', '/pkg-exam/paper/paper?paperId=p_1');
     expect(wx.showToast).toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
     expect(wx.reLaunch).toHaveBeenCalledWith({ url: '/pages/exam/me/me' });
   });
@@ -69,7 +74,7 @@ describe('utils/auth', () => {
 
     const { requireLogin } = require('../utils/auth');
     const p1 = requireLogin('/pages/exam/home/home');
-    const p2 = requireLogin('/pages/exam/paper/paper?paperId=p_1');
+    const p2 = requireLogin('/pkg-exam/paper/paper?paperId=p_1');
 
     resolveCloud({
       result: {

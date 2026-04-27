@@ -17,21 +17,11 @@ function mockDeps({ localPremium = false, localAgent = false, loggedIn = true } 
     getActivationQrLocal: jest.fn(() => '/assets/wechat_qr.jpg'),
     refreshActivationQrByUser: jest.fn(async () => '/assets/wechat_qr.jpg'),
   }));
-  jest.doMock('../utils/exam-data', () => ({
+  jest.doMock('../utils/exam-catalog', () => ({
     getPapersByType: jest.fn(() => [
       { id: 'p1', premium: false },
       { id: 'p2', premium: true },
     ]),
-  }));
-  jest.doMock('../utils/volume-collection', () => ({
-    hasVolumePremium: jest.fn(() => true),
-    getVolumeCollectionSummary: jest.fn((volumeId, type) => ({
-      total: type === 'wrong' ? 3 : 5,
-      answered: 0,
-      correct: 0,
-      accuracy: '0%',
-      chapterStats: [],
-    })),
   }));
 }
 
@@ -63,6 +53,21 @@ describe('pages/exam/home/home.js', () => {
     page.switchType({ currentTarget: { dataset: { type: '卷一' } } });
     expect(page.data.activeType).toBe('卷一');
     expect(page.loadPapers).toHaveBeenCalled();
+  });
+
+  test('supports 卷四 tab and loads papers by 卷四', () => {
+    mockDeps();
+    const def = loadPage('../pages/exam/home/home.js');
+    const page = createPageInstance(def);
+    const examData = require('../utils/exam-catalog');
+
+    expect(page.data.typeTabs).toContain('卷四');
+
+    page.switchType({ currentTarget: { dataset: { type: '卷四' } } });
+    expect(page.data.activeType).toBe('卷四');
+
+    page.loadPapers();
+    expect(examData.getPapersByType).toHaveBeenLastCalledWith('卷四');
   });
 
   test('goPaper opens activation dialog when premium locked', async () => {
@@ -97,7 +102,7 @@ describe('pages/exam/home/home.js', () => {
     await page.goPaper({ currentTarget: { dataset: { id: 'volume-卷一-wrong' } } });
 
     expect(wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/exam/volume_collection/volume_collection?volumeId=%E5%8D%B7%E4%B8%80&type=wrong',
+      url: '/pkg-exam/volume_collection/volume_collection?volumeId=%E5%8D%B7%E4%B8%80&type=wrong',
     }));
   });
 
@@ -120,7 +125,7 @@ describe('pages/exam/home/home.js', () => {
     await page.goPaper({ currentTarget: { dataset: { id: 'volume-卷一-favorite' } } });
 
     expect(wx.navigateTo).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pages/exam/volume_collection/volume_collection?volumeId=%E5%8D%B7%E4%B8%80&type=favorite',
+      url: '/pkg-exam/volume_collection/volume_collection?volumeId=%E5%8D%B7%E4%B8%80&type=favorite',
     }));
     expect(wx.showToast).not.toHaveBeenCalledWith({ title: '请先登录', icon: 'none' });
   });
@@ -168,7 +173,7 @@ describe('pages/exam/home/home.js', () => {
 
     expect(page.data.showActivationDialog).toBe(false);
     expect(wx.navigateTo).toHaveBeenCalledWith(
-      expect.objectContaining({ url: '/pages/exam/paper/paper?paperId=p2' }),
+      expect.objectContaining({ url: '/pkg-exam/paper/paper?paperId=p2' }),
     );
   });
 

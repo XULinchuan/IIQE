@@ -3,7 +3,8 @@
       <view class="name">{{item.title}}</view>
       <view class="meta">
         <text>已答 {{item.answered}}</text>
-        <text>错题 {{item.wrong}}</text>
+        <text>答对 {{item.correct}}</text>
+        <text>答错 {{item.wrong}}</text>
         <text>收藏 {{item.favorites}}</text>
       </view>
     </view>

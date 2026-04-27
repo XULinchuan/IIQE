@@ -1,7 +1,11 @@
 <view class="page" wx:if="{{!finished && current}}"><view class="head">
-    <view class="progress">第 {{idx + 1}} / {{questions.length}} 题</view>
+    <view class="progress-wrap">
+      <view class="progress">第 {{idx + 1}} / {{questions.length}} 题</view>
+      <view wx:if="{{showExamTimerControls}}" class="timer">剩余 {{examTimerText}}</view>
+    </view>
     <view class="actions">
       <view class="btn light" bindtap="toggleFavorite">{{isFavorite ? '取消收藏' : '收藏'}}</view>
+      <view wx:if="{{showExamTimerControls}}" class="btn danger" bindtap="submitDynamicMockPaper">交卷</view>
       <view wx:if="{{mode !== 'wrong' && mode !== 'favorite' && mode !== 'volume_wrong' && mode !== 'volume_favorite'}}" class="btn warn" bindtap="resetPaperProgress">清进度</view>
     </view>
   </view>

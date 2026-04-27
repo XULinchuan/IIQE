@@ -15,13 +15,13 @@ describe('paper/question access gate', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(() => ({ id: 'p1', title: 'P1', premium: true })),
       getQuestionsByPaperId: jest.fn(() => []),
       chapterTitleMap: {},
     }));
 
-    const def = loadPage('../pages/exam/paper/paper.js');
+    const def = loadPage('../pkg-exam/paper/paper.js');
     const page = createPageInstance(def);
     page.safeBack = jest.fn();
 
@@ -39,13 +39,13 @@ describe('paper/question access gate', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(() => ({ id: 'p1', title: 'P1', premium: true })),
       getQuestionsByPaperId: jest.fn(() => []),
       chapterTitleMap: {},
     }));
 
-    const def = loadPage('../pages/exam/paper/paper.js');
+    const def = loadPage('../pkg-exam/paper/paper.js');
     const page = createPageInstance(def);
     page.refreshStats = jest.fn();
 
@@ -64,12 +64,12 @@ describe('paper/question access gate', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(() => ({ id: 'p1', title: 'P1', premium: true })),
       getQuestionsByPaperId: jest.fn(() => []),
     }));
 
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
     page.backToPaper = jest.fn();
 
@@ -87,12 +87,12 @@ describe('paper/question access gate', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(() => ({ id: 'p1', title: 'P1', premium: true })),
       getQuestionsByPaperId: jest.fn(() => [{ id: 'q1', chapter: '1.1', answer: 0 }]),
     }));
 
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
 
     await page.onLoad({ paperId: 'p1', mode: 'random' });

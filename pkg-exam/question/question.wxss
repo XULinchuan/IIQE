@@ -46,6 +46,13 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 18rpx;
+  gap: 12rpx;
+}
+
+.progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
 }
 
 .progress {
@@ -53,9 +60,16 @@
   color: #111;
 }
 
+.timer {
+  font-size: 28rpx;
+  color: #b91c1c;
+}
+
 .actions {
   display: flex;
   gap: 10rpx;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .btn {
@@ -72,6 +86,11 @@
 .btn.warn {
   background: #fee2e2;
   color: #b91c1c;
+}
+
+.btn.danger {
+  background: #dc2626;
+  color: #fff;
 }
 
 .q-card {

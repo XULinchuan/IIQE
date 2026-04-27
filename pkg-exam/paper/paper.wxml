@@ -1,5 +1,6 @@
 <view class="page"><view class="stats-card">
     <view class="stats-title">答题情况</view>
+    <view wx:if="{{isDynamicMockPaper}}" class="pass-tip">{{passRateText}}</view>
     <view class="stats-grid">
       <view class="metric">
         <view class="num right">{{correct}}</view>

@@ -4,6 +4,18 @@
     "ignore": [
       {
         "type": "folder",
+        "value": "tests"
+      },
+      {
+        "type": "folder",
+        "value": "coverage"
+      },
+      {
+        "type": "folder",
+        "value": "node_modules"
+      },
+      {
+        "type": "folder",
         "value": "data"
       },
       {

@@ -10,7 +10,7 @@ describe('question wrong/fix logic', () => {
       refreshPremiumAccess: jest.fn(),
       refreshMyAgentProfile: jest.fn(),
     }));
-    jest.doMock('../utils/exam-data', () => ({
+    jest.doMock('../pkg-exam/utils/exam-data', () => ({
       getPaperById: jest.fn(() => ({ id: 'p1', title: 'P1', premium: true })),
       getQuestionsByPaperId: jest.fn(() => [
         { id: 'q1', chapter: '1.1', answer: 3 },
@@ -28,7 +28,7 @@ describe('question wrong/fix logic', () => {
   }
 
   test('wrong answer adds question into wrongIds', () => {
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
     page.data.paperId = 'p1';
     page.data.current = { id: 'q1', answer: 3 };
@@ -45,7 +45,7 @@ describe('question wrong/fix logic', () => {
   });
 
   test('correcting a previously wrong question removes it from wrongIds', () => {
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
     page.data.paperId = 'p1';
     page.data.current = { id: 'q1', answer: 3 };
@@ -67,7 +67,7 @@ describe('question wrong/fix logic', () => {
   });
 
   test('repeated wrong attempts do not duplicate wrongIds', () => {
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
     page.data.paperId = 'p1';
     page.data.current = { id: 'q1', answer: 3 };
@@ -82,7 +82,7 @@ describe('question wrong/fix logic', () => {
   });
 
   test('wrong mode correct answer removes current question from wrong source and jumps to next wrong', () => {
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
     wx.setStorageSync('iiqe_progress_p1', {
       answers: { q1: 1, q2: 1 },
@@ -111,7 +111,7 @@ describe('question wrong/fix logic', () => {
   });
 
   test('wrong mode correct answer on last wrong question exits wrong mode list', () => {
-    const def = loadPage('../pages/exam/question/question.js');
+    const def = loadPage('../pkg-exam/question/question.js');
     const page = createPageInstance(def);
     wx.setStorageSync('iiqe_progress_p1', {
       answers: { q1: 1 },

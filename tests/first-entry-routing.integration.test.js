@@ -23,7 +23,7 @@ function loadHomePageAsGuest() {
     refreshMyAgentProfile: jest.fn(async () => ({ isAgent: false, status: '' })),
     refreshActivationQrByUser: jest.fn(async () => '/assets/wechat_qr.jpg'),
   }));
-  jest.doMock('../utils/exam-data', () => ({
+  jest.doMock('../utils/exam-catalog', () => ({
     getPapersByType: jest.fn(() => [{ id: 'p2', premium: true, total: 100, title: '2026年2月真题' }]),
   }));
   const def = loadPage('../pages/exam/home/home.js');
