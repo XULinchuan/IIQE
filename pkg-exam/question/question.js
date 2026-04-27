@@ -548,10 +548,10 @@ Page({
       }
     }
     this.stopExamTimer({ persist: true });
+    const summary = buildMockExamSummary(paperId);
     if (typeof markDynamicMockSessionSubmitted === 'function') {
       markDynamicMockSessionSubmitted(paperId, reason || 'manual');
     }
-    const summary = buildMockExamSummary(paperId);
     this.setData({
       examSubmitted: true,
       disableCursorPersist: true,

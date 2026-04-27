@@ -749,6 +749,55 @@ describe('pkg-exam/question/question.js', () => {
     expect(page.backToPaper).toHaveBeenCalled();
   });
 
+  test('dynamic mock submit summarizes the current session before marking it submitted', () => {
+    const questionsByPaper = {
+      'paper4-random-mock': [
+        { id: 'q1', chapter: '1.1', answer: 0 },
+        { id: 'q2', chapter: '1.2', answer: 1 },
+        { id: 'q3', chapter: '1.3', answer: 2 },
+      ],
+    };
+    mockDeps({
+      dynamicMockPaper: true,
+      questionsByPaper,
+      markSubmittedImpl: () => {
+        questionsByPaper['paper4-random-mock'] = [
+          { id: 'new-q1', chapter: '1.1', answer: 0 },
+          { id: 'new-q2', chapter: '1.2', answer: 1 },
+          { id: 'new-q3', chapter: '1.3', answer: 2 },
+        ];
+        wx.setStorageSync('iiqe_progress_paper4-random-mock', {
+          answers: {},
+          correctCount: 0,
+          wrongIds: [],
+          favorites: [],
+        });
+      },
+    });
+    wx.setStorageSync('iiqe_progress_paper4-random-mock', {
+      answers: { q1: 0, q2: 1, q3: 0 },
+      correctCount: 2,
+      wrongIds: ['q3'],
+      favorites: [],
+    });
+    wx.showModal.mockImplementation(({ success }) => {
+      if (typeof success === 'function') success({ confirm: true, cancel: false });
+    });
+    const def = loadPage('../pkg-exam/question/question.js');
+    const page = createPageInstance(def);
+    page.backToPaper = jest.fn();
+    page.setData({
+      paperId: 'paper4-random-mock',
+      isDynamicMockPaper: true,
+    });
+
+    page.finishDynamicMockPaper('manual');
+
+    expect(wx.showModal).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('答对 2/3 题'),
+    }));
+  });
+
   test('resetPaperProgress regenerates dynamic mock paper only when forced', () => {
     mockDeps({
       dynamicMockPaper: true,
